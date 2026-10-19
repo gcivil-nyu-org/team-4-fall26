@@ -22,7 +22,8 @@ const FACETS: Facets = {
 	],
 	categories: [{ value: 'academic_library', count: 8 }],
 	universities: [{ value: 'New York University', count: 10 }],
-	free_public_wifi: 34
+	free_public_wifi: 34,
+	no_purchase_needed: 56
 };
 
 function spot(id: string, name: string): StudySpot {
@@ -36,7 +37,9 @@ function spot(id: string, name: string): StudySpot {
 		latitude: 40.86,
 		longitude: -73.86,
 		university: null,
-		free_public_wifi: false
+		operator: 'New York Public Library',
+		free_public_wifi: false,
+		no_purchase_needed: true
 	};
 }
 
@@ -167,6 +170,20 @@ describe('paging', () => {
 	});
 });
 
+describe('the place card', () => {
+	it('names who runs the place', async () => {
+		// A branch is named after its neighbourhood, so its own name never says
+		// which library system it belongs to -- and the three have separate
+		// membership.
+		render(Home);
+
+		await box().fill('library');
+		await searchButton().click();
+
+		await expect.element(page.getByText('New York Public Library')).toBeInTheDocument();
+	});
+});
+
 describe('the filter counts', () => {
 	/** Every facets request, in order. */
 	function facetRequests() {
@@ -202,6 +219,15 @@ describe('the filter counts', () => {
 
 		const latest = facetRequests()[facetRequests().length - 1];
 		expect(latest.parameters.get('q')).toBe('library');
+	});
+
+	it('put the no-purchase count on its checkbox', async () => {
+		// Not any one category: true of every library and of the campus
+		// buildings, false only of cafes, so it cannot be read off the Type
+		// control.
+		render(Home);
+
+		await expect.element(page.getByText('(56)')).toBeInTheDocument();
 	});
 
 	it('put the Wi-Fi count on its checkbox', async () => {

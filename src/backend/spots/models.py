@@ -25,6 +25,31 @@ MAX_LIMIT = 100
 #: Filter values are trimmed, must not be blank, and are bounded.
 MAX_FILTER_LENGTH = 120
 
+#: Categories where sitting down costs nothing.
+#:
+#: This answers the question a student actually asks -- "can I work here without
+#: buying something?" -- which no single category answers: it is true of all the
+#: libraries and of the campus buildings, and false only of cafes.
+#:
+#: **It is about money and not about entry.** A special library may be open by
+#: appointment, an academic library may want a university ID, and an NYU
+#: building wants NYU credentials. The contract has no field for access and the
+#: application promises none; this one says only that nobody will ask you to buy
+#: a coffee.
+#:
+#: An allowlist rather than its inverse, so that a category added upstream is
+#: not silently published as free. The vocabulary belongs to ``data/ingest.py``
+#: and this is the one place the API has an opinion about it, so the two have to
+#: be changed together.
+NO_PURCHASE_CATEGORIES = frozenset(
+    {
+        "public_library",
+        "special_library",
+        "academic_library",
+        "university_building",
+    }
+)
+
 
 class Borough(models.TextChoices):
     """The five New York City boroughs."""
@@ -105,9 +130,23 @@ class StudySpot(models.Model):
         blank=True,
         null=True,
         help_text=(
-            "The institution this spot belongs to, for records the importer takes "
-            "from a curated campus list. Never inferred: a spot with no curated "
-            "affiliation leaves this absent."
+            "The closest campus within 500 m, or the campus itself for a campus "
+            "record. Proximity and never affiliation: a named campus does not mean "
+            "the institution runs the place or that anyone may walk in. Cafes never "
+            "carry one, being third places in their own right rather than somewhere "
+            "reached through a campus."
+        ),
+    )
+
+    operator = models.TextField(
+        blank=True,
+        null=True,
+        help_text=(
+            "Who runs the place, where the city records it. For a public library "
+            "branch this is its system -- New York, Brooklyn or Queens Public "
+            "Library -- which nothing else in the record says: branches are named "
+            "after their neighborhood. Absent for cafes, whose licence names only "
+            "the company holding it."
         ),
     )
 
@@ -125,18 +164,39 @@ class StudySpot(models.Model):
     #: than by application code: a generated column cannot fall out of step with
     #: the row the way a column the loader has to remember to update can.
     #:
-    #: The weights are the ranking. A query word found in the name (A) counts for
-    #: more than the same word in the campus (B), the neighborhood (C) or the
-    #: address (D), so "Washington" ranks a library called Washington above one
-    #: on Washington Street. Campus is weighted second because it is the field
-    #: that makes a search for a university find its buildings: 14 spots relate
-    #: to NYU and only 3 say so in their name.
+    #: The weights are the ranking. A query word found in the name (A) counts
+    #: for more than the same word in the campus (B), the neighborhood (C), or
+    #: the address, borough and category (D), so "Washington" ranks a library
+    #: called Washington above one on Washington Street. Campus is weighted
+    #: second because it is the field that makes a search for a university find
+    #: its buildings: 14 spots relate to NYU and only 3 say so in their name.
+    #:
+    #: The operator shares the campus's weight because it answers the same kind
+    #: of question -- which institution is this -- and it is the only field that
+    #: connects a branch to its library system. Without it "qpl" could not find
+    #: the 67 Queens Public Library branches, because not one of them says so in
+    #: any other field: they are named "Howard Beach" and "Fresh Meadows".
+    #:
+    #: Borough and category are in here despite each having a filter of its
+    #: own, because without them the phrases people actually type did not work.
+    #: "bronx public library" found three spots and put a Manhattan one first;
+    #: "manhattan library" found five of the sixty-eight. They cannot flood a
+    #: result set either, because the full-text pass requires every word to
+    #: match: "bobst library" still returns the one library named Bobst, since
+    #: only one row matches both words. A bare "cafe" does grow to every cafe,
+    #: which is what the word means.
+    #:
+    #: The category needs no transformation. Postgres splits on the underscore,
+    #: so "public_library" indexes exactly as "public library" does.
     search_vector = models.GeneratedField(
         expression=(
             SearchVector("name", weight="A", config="english")
             + SearchVector("university", weight="B", config="english")
+            + SearchVector("operator", weight="B", config="english")
             + SearchVector("neighborhood", weight="C", config="english")
             + SearchVector("address", weight="D", config="english")
+            + SearchVector("borough", weight="D", config="english")
+            + SearchVector("category", weight="D", config="english")
         ),
         output_field=SearchVectorField(),
         db_persist=True,

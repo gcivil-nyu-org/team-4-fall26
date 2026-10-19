@@ -7,7 +7,7 @@ NYC Open Data -> data/ingest.py -> data/spots.json -> Postgres -> API
                                                    \-> search index
 ```
 
-The snapshot holds 2,042 third places across the five boroughs: 1,652 cafés with a sidewalk licence, 248 public libraries, 126 college and university campuses, and 16 academic libraries and campus buildings. These are candidate locations, not guarantees of Wi-Fi, outlets, seating, quietness, or availability.
+The snapshot holds 1,916 third places across the five boroughs: 1,652 cafés with a sidewalk licence, 227 public library branches, 21 special libraries, 8 academic libraries and 8 NYU campus buildings. The city's 126 campus records are read but not published: an institution's administrative point is not a room, and access to a campus is restricted. They anchor the "near which campus" label instead. These are candidate locations, not guarantees of Wi-Fi, outlets, seating, quietness, or availability.
 
 The directory intentionally stays small:
 

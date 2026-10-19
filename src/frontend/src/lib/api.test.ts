@@ -15,7 +15,9 @@ function page(total: number, count = total, offset = 0): SpotPage {
 			latitude: 40.73,
 			longitude: -73.95,
 			university: null,
-			free_public_wifi: false
+			operator: 'Brooklyn Public Library',
+			free_public_wifi: false,
+			no_purchase_needed: true
 		})),
 		pagination: {
 			limit: 20,
@@ -247,7 +249,8 @@ describe('fetchFacets', () => {
 			boroughs: [{ value: 'Manhattan', count: 151 }],
 			categories: [{ value: 'library', count: 248 }],
 			universities: [{ value: 'New York University', count: 12 }],
-			free_public_wifi: 206
+			free_public_wifi: 206,
+			no_purchase_needed: 264
 		});
 
 	it('reads the values the filter controls offer', async () => {
@@ -277,10 +280,20 @@ describe('fetchFacets', () => {
 	it('passes the active filters along', async () => {
 		const { urls, fetcher } = recorder(facetBody);
 
-		await fetchFacets({ filters: { borough: 'Bronx', free_public_wifi: true }, fetcher });
+		await fetchFacets({
+			filters: { borough: 'Bronx', free_public_wifi: true, no_purchase_needed: true },
+			fetcher
+		});
 
 		expect(urls[0]).toContain('borough=Bronx');
 		expect(urls[0]).toContain('free_public_wifi=true');
+		expect(urls[0]).toContain('no_purchase_needed=true');
+	});
+
+	it('reads the no-purchase count as a single number', async () => {
+		const { fetcher } = recorder(facetBody);
+
+		expect((await fetchFacets({ fetcher })).no_purchase_needed).toBe(264);
 	});
 
 	it('passes the query along, so the counts describe the search', async () => {

@@ -44,7 +44,7 @@ RECORDS: list[dict[str, Any]] = [
     {
         "id": "facdb:allerton",
         "name": "Allerton Library",
-        "category": "library",
+        "category": "public_library",
         "address": "2740 Barnes Avenue",
         "neighborhood": None,
         "borough": "Bronx",
@@ -76,6 +76,10 @@ RECORDS: list[dict[str, Any]] = [
     },
 ]
 
+#: What the API publishes, which is one field more than ``data/spots.json``
+#: stores: `no_purchase_needed` is derived from the category rather than held in
+#: a column, so the snapshot keeps what the city supplied and the contract says
+#: what follows from it.
 CONTRACT_FIELDS = {
     "id",
     "name",
@@ -86,7 +90,9 @@ CONTRACT_FIELDS = {
     "latitude",
     "longitude",
     "university",
+    "operator",
     "free_public_wifi",
+    "no_purchase_needed",
 }
 
 
@@ -263,3 +269,61 @@ class TestRouting:
         # trailing slash added here would become a 404 rather than a redirect.
         assert reverse("spot-list") == "/spots"
         assert reverse("spot-detail", kwargs={"spot_id": "facdb:bobst"}) == "/spots/facdb:bobst"
+
+
+class TestCost:
+    """The filter for "can I work here without buying something?".
+
+    Not a column and not a category: it is true of every library and of the
+    campus buildings, and false only of cafes, so no single category answers it.
+    """
+
+    def test_it_keeps_only_the_places_that_cost_nothing(
+        self, client: Any, spots: list[StudySpot]
+    ) -> None:
+        body = client.get("/spots?no_purchase_needed=true").json()
+        returned = {spot["id"] for spot in body["items"]}
+
+        assert returned == {"facdb:bobst", "facdb:butler", "facdb:allerton"}
+        assert body["pagination"]["total"] == 3
+
+    def test_false_is_a_filter_rather_than_its_absence(
+        self, client: Any, spots: list[StudySpot]
+    ) -> None:
+        # The cafes, and only the cafes.
+        body = client.get("/spots?no_purchase_needed=false").json()
+        assert {spot["category"] for spot in body["items"]} == {"cafe"}
+
+    def test_omitting_it_narrows_nothing(self, client: Any, spots: list[StudySpot]) -> None:
+        assert client.get("/spots").json()["pagination"]["total"] == len(RECORDS)
+
+    def test_it_combines_with_the_other_filters(self, client: Any, spots: list[StudySpot]) -> None:
+        body = client.get("/spots?no_purchase_needed=true&borough=Bronx").json()
+        assert [spot["id"] for spot in body["items"]] == ["facdb:allerton"]
+
+    def test_it_applies_to_the_search_endpoint_too(
+        self, client: Any, spots: list[StudySpot]
+    ) -> None:
+        # Filters narrow the candidates before ranking on both endpoints.
+        body = client.get("/spots/search?q=library&no_purchase_needed=false").json()
+        assert body["pagination"]["total"] == 0
+
+    def test_a_category_outside_the_list_is_not_claimed_free(
+        self, client: Any, spots: list[StudySpot]
+    ) -> None:
+        # The set is an allowlist so that a category added upstream is not
+        # silently published as costing nothing.
+        StudySpot.objects.create(
+            id="facdb:newkind",
+            name="Something Upstream Added",
+            category="coworking_space",
+            address=None,
+            neighborhood=None,
+            borough="Manhattan",
+            latitude=40.75,
+            longitude=-73.99,
+            university=None,
+        )
+
+        free = client.get("/spots?no_purchase_needed=true").json()
+        assert "facdb:newkind" not in {spot["id"] for spot in free["items"]}

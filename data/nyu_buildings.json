@@ -9,6 +9,7 @@
     "latitude": 40.7295,
     "longitude": -73.9974,
     "university": "New York University",
+    "operator": "New York University",
     "free_public_wifi": false
   },
   {
@@ -21,6 +22,7 @@
     "latitude": 40.7301,
     "longitude": -73.9977,
     "university": "New York University",
+    "operator": "New York University",
     "free_public_wifi": false
   },
   {
@@ -33,6 +35,7 @@
     "latitude": 40.7286,
     "longitude": -73.9956,
     "university": "New York University",
+    "operator": "New York University",
     "free_public_wifi": false
   },
   {
@@ -45,6 +48,7 @@
     "latitude": 40.7291,
     "longitude": -73.9965,
     "university": "New York University",
+    "operator": "New York University",
     "free_public_wifi": false
   },
   {
@@ -57,6 +61,7 @@
     "latitude": 40.7301,
     "longitude": -73.9955,
     "university": "New York University",
+    "operator": "New York University",
     "free_public_wifi": false
   },
   {
@@ -69,6 +74,7 @@
     "latitude": 40.6942,
     "longitude": -73.9865,
     "university": "New York University",
+    "operator": "New York University",
     "free_public_wifi": false
   },
   {
@@ -81,6 +87,7 @@
     "latitude": 40.6939,
     "longitude": -73.9855,
     "university": "New York University",
+    "operator": "New York University",
     "free_public_wifi": false
   },
   {
@@ -93,6 +100,7 @@
     "latitude": 40.7294,
     "longitude": -73.9986,
     "university": "New York University",
+    "operator": "New York University",
     "free_public_wifi": false
   },
   {
@@ -105,6 +113,7 @@
     "latitude": 40.7357,
     "longitude": -73.9944,
     "university": "New York University",
+    "operator": "New York University",
     "free_public_wifi": false
   },
   {
@@ -117,6 +126,7 @@
     "latitude": 40.7271,
     "longitude": -73.9967,
     "university": "New York University",
+    "operator": "New York University",
     "free_public_wifi": false
   }
 ]

@@ -193,16 +193,34 @@ def search(query: str, queryset: QuerySet[StudySpot] | None = None) -> QuerySet[
     Ties break on name then id, the same total ordering ``GET /spots`` uses, so
     that paging through results is stable when many share a score.
 
-    Choosing the pass costs one ``EXISTS``, which is a cheap price for not
+    Choosing the pass costs one ``EXISTS`` each, which is a cheap price for not
     having to reconcile two scoring schemes into one number: full text ranks by
     where a word was found, trigrams by how close it was, and a blend of the two
     would be a figure nobody could reason about.
     """
-    expanded = expand(query)
     base = StudySpot.objects.all() if queryset is None else queryset
+    expanded = expand(query)
 
-    matches = precise(expanded, base)
-    return matches if matches.exists() else tolerant(expanded, base)
+    # The expansion is a hint, not a replacement, so the literal term gets a
+    # turn before the fuzzy pass does.
+    #
+    # "CUNY" is the case that proved it. It expands to "City University of New
+    # York", which no record contains -- the campuses are named "CUNY Hunter
+    # College" and carry CUNY in their campus field -- so the only attempt
+    # failed and the query fell through to trigrams, where "New York Cit..." is
+    # a close match for "New York City Bagel & Coffee House". Typing CUNY
+    # returned bagel shops. Trying "cuny" itself finds the five real campuses.
+    attempts = [expanded, query] if expanded != query else [query]
+    for attempt in attempts:
+        matches = precise(attempt, base)
+        if matches.exists():
+            return matches
+
+    # Trigrams on what was actually typed, never on the expansion. Fuzzy
+    # matching against words the person did not write is how the bagels got in:
+    # "libary" should reach "Library", and nothing should reach a phrase the
+    # search box silently substituted.
+    return tolerant(query, base)
 
 
 __all__ = [

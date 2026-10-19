@@ -44,7 +44,7 @@ RECORDS: list[dict[str, Any]] = [
     {
         "id": "facdb:125th",
         "name": "125th Street Library",
-        "category": "library",
+        "category": "public_library",
         "address": None,
         "neighborhood": "East Harlem (North)",
         "borough": "Manhattan",
@@ -56,7 +56,7 @@ RECORDS: list[dict[str, Any]] = [
     {
         "id": "facdb:allerton",
         "name": "Allerton Library",
-        "category": "library",
+        "category": "public_library",
         "address": None,
         "neighborhood": None,
         "borough": "Bronx",
@@ -68,7 +68,7 @@ RECORDS: list[dict[str, Any]] = [
     {
         "id": "facdb:fordham",
         "name": "Fordham University Rose Hill",
-        "category": "university",
+        "category": "university_building",
         "address": None,
         "neighborhood": "Belmont",
         "borough": "Bronx",
@@ -105,7 +105,13 @@ def counts(facet: list[dict[str, Any]]) -> dict[str, int]:
 class TestEnvelope:
     def test_reports_every_facet(self, client: Any, spots: list[StudySpot]) -> None:
         body = client.get("/spots/facets").json()
-        assert set(body) == {"boroughs", "categories", "universities", "free_public_wifi"}
+        assert set(body) == {
+            "boroughs",
+            "categories",
+            "universities",
+            "free_public_wifi",
+            "no_purchase_needed",
+        }
 
     def test_a_value_list_carries_a_value_and_a_count(
         self, client: Any, spots: list[StudySpot]
@@ -116,6 +122,11 @@ class TestEnvelope:
         # A boolean has no list of values to offer: the control is a checkbox,
         # so the only useful number is how many spots remain when it is ticked.
         assert client.get("/spots/facets").json()["free_public_wifi"] == 3
+
+    def test_cost_is_a_single_count(self, client: Any, spots: list[StudySpot]) -> None:
+        # Five of the six fixture records cost nothing to sit in; the cafe is
+        # the one that expects a purchase.
+        assert client.get("/spots/facets").json()["no_purchase_needed"] == 5
 
     def test_counts_are_ordered_by_size(self, client: Any, spots: list[StudySpot]) -> None:
         sizes = [row["count"] for row in client.get("/spots/facets").json()["boroughs"]]
@@ -128,9 +139,9 @@ class TestWithoutFilters:
         assert counts(body["boroughs"]) == {"Manhattan": 3, "Bronx": 2, "Brooklyn": 1}
         assert counts(body["categories"]) == {
             "academic_library": 2,
-            "library": 2,
+            "public_library": 2,
             "cafe": 1,
-            "university": 1,
+            "university_building": 1,
         }
 
     def test_a_null_column_is_not_a_facet_value(self, client: Any, spots: list[StudySpot]) -> None:
@@ -146,7 +157,7 @@ class TestWithoutFilters:
 class TestFiltersNarrowOtherFacets:
     def test_a_borough_narrows_the_categories(self, client: Any, spots: list[StudySpot]) -> None:
         body = client.get("/spots/facets?borough=Manhattan").json()
-        assert counts(body["categories"]) == {"academic_library": 2, "library": 1}
+        assert counts(body["categories"]) == {"academic_library": 2, "public_library": 1}
 
     def test_a_value_that_now_matches_nothing_is_not_offered(
         self, client: Any, spots: list[StudySpot]
@@ -155,7 +166,7 @@ class TestFiltersNarrowOtherFacets:
         # either would be offering a filter that returns an empty page.
         body = client.get("/spots/facets?borough=Manhattan").json()
         assert "cafe" not in counts(body["categories"])
-        assert "university" not in counts(body["categories"])
+        assert "university_building" not in counts(body["categories"])
 
     def test_a_borough_narrows_the_campuses(self, client: Any, spots: list[StudySpot]) -> None:
         body = client.get("/spots/facets?borough=Bronx").json()
@@ -171,7 +182,7 @@ class TestFiltersNarrowOtherFacets:
 
     def test_filters_combine(self, client: Any, spots: list[StudySpot]) -> None:
         body = client.get("/spots/facets?borough=Manhattan&free_public_wifi=true").json()
-        assert counts(body["categories"]) == {"academic_library": 1, "library": 1}
+        assert counts(body["categories"]) == {"academic_library": 1, "public_library": 1}
 
     def test_a_name_filter_narrows_them_too(self, client: Any, spots: list[StudySpot]) -> None:
         body = client.get("/spots/facets?name=library").json()
@@ -193,9 +204,9 @@ class TestAFacetIgnoresItsOwnFilter:
         body = client.get("/spots/facets?category=library").json()
         assert set(counts(body["categories"])) == {
             "academic_library",
-            "library",
+            "public_library",
             "cafe",
-            "university",
+            "university_building",
         }
 
     def test_the_wifi_count_ignores_the_wifi_filter(
@@ -236,7 +247,7 @@ class TestWithAQuery:
 
     def test_a_query_combines_with_a_filter(self, client: Any, spots: list[StudySpot]) -> None:
         body = client.get("/spots/facets?q=library&borough=Manhattan").json()
-        assert counts(body["categories"]) == {"academic_library": 2, "library": 1}
+        assert counts(body["categories"]) == {"academic_library": 2, "public_library": 1}
 
     def test_a_query_matching_nothing_empties_every_facet(
         self, client: Any, spots: list[StudySpot]
@@ -270,3 +281,32 @@ class TestValidation:
         # A facet list is as long as the number of distinct values. Paging it
         # would mean a control that offers some of the values.
         assert client.get(f"/spots/facets?{query}").status_code == 422
+
+
+class TestTheCostFacet:
+    """ "Can I work here without buying something?" is not any one category.
+
+    It is true of every library and of the campus buildings, and false only of
+    cafes, so the count cannot be read off the category list.
+    """
+
+    def test_it_narrows_with_the_other_filters(self, client: Any, spots: list[StudySpot]) -> None:
+        # Manhattan holds two academic libraries and one public library, all
+        # free, and no cafe.
+        assert client.get("/spots/facets?borough=Manhattan").json()["no_purchase_needed"] == 3
+        assert client.get("/spots/facets?borough=Brooklyn").json()["no_purchase_needed"] == 0
+
+    def test_it_ignores_its_own_filter(self, client: Any, spots: list[StudySpot]) -> None:
+        # Ticked or not, it means the same thing: how many of the spots the
+        # other filters leave cost nothing.
+        for value in ("true", "false"):
+            body = client.get(f"/spots/facets?no_purchase_needed={value}").json()
+            assert body["no_purchase_needed"] == 5
+
+    def test_it_narrows_the_other_facets(self, client: Any, spots: list[StudySpot]) -> None:
+        body = client.get("/spots/facets?no_purchase_needed=true").json()
+        assert "cafe" not in counts(body["categories"])
+
+    def test_the_inverse_leaves_only_the_cafes(self, client: Any, spots: list[StudySpot]) -> None:
+        body = client.get("/spots/facets?no_purchase_needed=false").json()
+        assert counts(body["categories"]) == {"cafe": 1}

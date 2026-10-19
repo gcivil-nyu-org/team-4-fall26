@@ -30,13 +30,16 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 PUBLISHED_EXAMPLE = {
     "id": "facdb:eec118768e15a5e03d3354abda7b00da",
     "name": "125th Street Library",
-    "category": "library",
+    "category": "public_library",
     "address": "224 East 125 Street, New York, NY 10035",
     "neighborhood": "East Harlem (North)",
     "borough": "Manhattan",
     "latitude": 40.803027,
     "longitude": -73.934853,
     "university": "Touro University - Harlem",
+    # FacDB's opname. The branch is named after its neighborhood and nothing
+    # else in the record says which system runs it.
+    "operator": "New York Public Library",
     # The fixture puts a free hotspot on this branch; see fixtures/wifi.json.
     "free_public_wifi": True,
 }
@@ -44,7 +47,13 @@ PUBLISHED_EXAMPLE = {
 #: The published vocabulary. `university_building` is a campus building a
 #: student can work in, which FacDB has no equivalent for and only the curated
 #: list supplies; `cafe` has no source at all yet.
-CATEGORIES = {"library", "academic_library", "university", "university_building", "cafe"}
+CATEGORIES = {
+    "public_library",
+    "special_library",
+    "academic_library",
+    "university_building",
+    "cafe",
+}
 BOROUGHS = {"Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island"}
 
 
@@ -149,8 +158,11 @@ class TestCategories:
     @pytest.mark.parametrize(
         ("facname", "expected"),
         [
-            ("125TH STREET LIBRARY", "library"),
-            ("THE GROLIER CLUB OF NEW YORK", "library"),
+            ("125TH STREET LIBRARY", "public_library"),
+            # A club's collection. Kept apart from the public branches because
+            # the difference is the one a reader cares about: many special
+            # libraries are open by appointment or to members only.
+            ("THE GROLIER CLUB OF NEW YORK", "special_library"),
             ("COLUMBIA UNIVERSITY BUTLER LIBRARY", "academic_library"),
             ("COLUMBIA UNIVERSITY", "university"),
         ],
@@ -226,7 +238,9 @@ class TestAbsentValues:
 class TestNeighborhoods:
     def test_are_2020_nta_names(self, spots: list[dict[str, Any]]) -> None:
         assert published(spots, "125th Street Library")["neighborhood"] == "East Harlem (North)"
-        assert published(spots, "Columbia University")["neighborhood"] == "Morningside Heights"
+        assert published(spots, "Columbia University Butler Library")["neighborhood"] == (
+            "Morningside Heights"
+        )
 
     def test_a_code_the_boundary_file_does_not_know_publishes_null(
         self, facilities: list[dict[str, Any]], names: dict[str, str]
@@ -238,8 +252,18 @@ class TestNeighborhoods:
 
 
 class TestUniversityIsProximity:
-    def test_a_campus_record_names_itself(self, spots: list[dict[str, Any]]) -> None:
-        assert published(spots, "Columbia University")["university"] == "Columbia University"
+    def test_a_campus_is_an_anchor_and_not_a_spot(self, spots: list[dict[str, Any]]) -> None:
+        # A FacDB campus is an administrative point for an institution rather
+        # than a room -- nobody can sit down in a registration -- so it anchors
+        # the label below without being published as somewhere to study.
+        assert not [spot for spot in spots if spot["name"] == "Columbia University"]
+        assert "university" not in {spot["category"] for spot in spots}
+
+    def test_the_anchor_still_labels_what_is_near_it(self, spots: list[dict[str, Any]]) -> None:
+        # Dropping the campus records must not drop the derivation they feed.
+        assert published(spots, "Columbia University Butler Library")["university"] == (
+            "Columbia University"
+        )
 
     def test_a_spot_inside_the_radius_names_the_closest_campus(
         self, spots: list[dict[str, Any]]
@@ -379,11 +403,12 @@ class TestCommandLine:
         assert ingest.main(["--fixtures", str(FIXTURES), "--output", str(output)]) == 0
 
         written = json.loads(output.read_text("utf-8"))
-        # Eleven facility records and four cafes -- six licences, one without a
-        # borough and one a repeat of a storefront already seen -- plus the
-        # curated buildings, which are read from the repository rather than
-        # from the network either way.
-        assert len(written) == 11 + 4 + len(ingest.curated_spots())
+        # Nine published facility records -- eleven mapped, less the two
+        # campuses, which anchor the proximity label without being spots --
+        # and four cafes from six licences, one without a borough and one a
+        # repeat of a storefront already seen. Plus the curated buildings,
+        # which are read from the repository rather than from the network.
+        assert len(written) == 9 + 4 + len(ingest.curated_spots())
 
     def test_a_missing_fixture_directory_is_reported_not_raised(self, tmp_path: Path) -> None:
         assert ingest.main(["--fixtures", str(tmp_path / "absent")]) == 1
@@ -490,6 +515,7 @@ class TestCuratedBuildings:
                         "latitude": 40.73,
                         "longitude": -73.99,
                         "university": "New York University",
+                        "operator": "New York University",
                         "free_public_wifi": False,
                     }.items()
                 )
@@ -670,3 +696,78 @@ class TestCafes:
         # lane rather than somewhere to sit with a laptop.
         assert "license_status = 'Issued'" in ingest.CAFES_WHERE
         assert "license_type = 'Sidewalk'" in ingest.CAFES_WHERE
+
+
+class TestCafesAreNotAttachedToCampuses:
+    """A cafe is a third place in its own right.
+
+    A library beside a campus is plausibly *its* library; the cafe on the same
+    corner is just a cafe. The field would also have been unreliable: FacDB
+    stores one point per institution whatever its size, so no radius separates
+    the universities students attend from the vocational schools nobody is
+    looking for.
+    """
+
+    def test_a_cafe_beside_a_campus_has_no_university(
+        self, cafes: list[dict[str, Any]], names: dict[str, str]
+    ) -> None:
+        # A campus placed on top of the first fixture cafe, so proximity cannot
+        # be the reason the field is empty.
+        first = ingest.normalize([], cafes, names, [])[0]
+        campus = {
+            "uid": "campus-on-the-doorstep",
+            "facname": "RIGHT NEXT DOOR UNIVERSITY",
+            "facsubgrp": "COLLEGES OR UNIVERSITIES",
+            "factype": "4-YEAR INDEPENDENT",
+            "boro": "MANHATTAN",
+            "latitude": str(first["latitude"]),
+            "longitude": str(first["longitude"]),
+        }
+
+        spots = ingest.normalize([campus], cafes, names, [])
+        for spot in spots:
+            if spot["category"] == ingest.CAFE_CATEGORY:
+                assert spot["university"] is None
+
+    def test_a_facility_beside_the_same_campus_still_gets_one(
+        self, facilities: list[dict[str, Any]], names: dict[str, str]
+    ) -> None:
+        # The rule is about cafes, not about switching the derivation off.
+        spots = ingest.normalize(facilities, [], names, [])
+        assert any(spot["university"] for spot in spots if spot["category"] != "university")
+
+
+class TestOperator:
+    """The one field that connects a branch to its library system.
+
+    A branch is named after its neighborhood -- "Howard Beach", "Fresh
+    Meadows" -- so without this nothing in the record says who runs it, and
+    asking for the Queens Public Library branches could not find them.
+    """
+
+    def test_a_branch_names_its_system(self, spots: list[dict[str, Any]]) -> None:
+        assert published(spots, "125th Street Library")["operator"] == "New York Public Library"
+
+    def test_it_is_not_title_cased(self, facilities: list[dict[str, Any]]) -> None:
+        # Upstream already capitalises this field, unlike facname, so running
+        # it through title_case() would only make it worse.
+        record = {**upstream(facilities, "125TH STREET LIBRARY"), "opname": "NYU Tamiment Library"}
+        assert ingest.operator(record) == "NYU Tamiment Library"
+
+    def test_a_record_without_one_publishes_null(
+        self, facilities: list[dict[str, Any]], names: dict[str, str]
+    ) -> None:
+        record = {**upstream(facilities, "125TH STREET LIBRARY")}
+        record.pop("opname", None)
+        assert ingest.normalize([record], [], names, [])[0]["operator"] is None
+
+    def test_a_cafe_has_none(self, cafe_spots: list[dict[str, Any]]) -> None:
+        # Dining Out carries the licence holder -- "CGM-LLNR LLC" where the
+        # trading name is "JEAN'S" -- which is a registration rather than an
+        # operator anyone would search for.
+        assert all(spot["operator"] is None for spot in cafe_spots)
+
+    def test_it_is_part_of_the_contract(self, spots: list[dict[str, Any]]) -> None:
+        assert "operator" in ingest.CONTRACT_FIELDS
+        for spot in spots:
+            assert tuple(spot) == ingest.CONTRACT_FIELDS

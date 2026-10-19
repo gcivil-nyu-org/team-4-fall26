@@ -102,3 +102,36 @@ class TestRejection:
         with pytest.raises(CommandError):
             load(write_snapshot(tmp_path, [{**RECORDS[0], "borough": "Yonkers"}]))
         assert StudySpot.objects.count() == len(RECORDS)
+
+
+class TestEveryContractFieldIsWritten:
+    """A field the loader accepts but never writes is worse than one it rejects.
+
+    `operator` was added to the contract and to the loader's allowlist, and the
+    model is built from an explicit keyword list, so it validated cleanly and
+    was dropped on the floor. 1,916 rows loaded with the column null and
+    nothing said so.
+    """
+
+    def test_no_contract_field_is_silently_dropped(self, db: None) -> None:
+        from spots.management.commands.load_spots import CONTRACT_FIELDS, to_spot
+
+        record = {
+            "id": "facdb:everything",
+            "name": "Every Field Set",
+            "category": "public_library",
+            "address": "1 Test Street, New York, NY 10001",
+            "neighborhood": "Test Neighborhood",
+            "borough": "Manhattan",
+            "latitude": 40.75,
+            "longitude": -73.99,
+            "university": "Test University",
+            "operator": "Test Operator",
+            "free_public_wifi": True,
+        }
+        assert set(record) == CONTRACT_FIELDS, "the fixture must cover the whole contract"
+
+        spot = to_spot(record, 0)
+
+        for field in CONTRACT_FIELDS:
+            assert getattr(spot, field) == record[field], f"{field} was not written"

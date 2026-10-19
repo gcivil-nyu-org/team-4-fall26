@@ -65,6 +65,20 @@ to put tables on the sidewalk, which is good evidence the place exists and has s
 nothing about hours, Wi-Fi, power, noise, or whether anyone may sit with a laptop and one coffee
 for three hours. The contract has no field for any of that and the application promises none.
 
+## `operator` is who runs it
+
+FacDB's `opname`. For the 226 public branches it is the system — 91 New York Public Library, 68
+Brooklyn, 67 Queens — and it is the only field that says so: a branch is named after its
+neighbourhood, so *Howard Beach* and *Fresh Meadows* carry nothing else to connect them to Queens
+Public Library. The three systems have separate membership, which makes it worth publishing and
+not only searching.
+
+It is not title-cased. Upstream already capitalises this field, unlike `facname`, so passing it
+through the title-caser would leave *Nyu Tamiment Library* exactly as wrong as it arrives. For
+academic and special libraries it repeats the facility's own name, where it adds nothing and does
+no harm. Cafés have none: Dining Out records the company holding the licence, which is
+*CGM-LLNR LLC* where the trading name is *JEAN'S*.
+
 ## Identifiers
 
 A café identifier is `dining:` and a digest of the name and address, as in
@@ -86,18 +100,27 @@ FacDB if its keys ever look the same.
 
 ## Categories
 
-`library`, `academic_library`, `university`, `university_building` and `cafe` are the published
-vocabulary. The model leaves `category` a free string on purpose, so the vocabulary lives in
+`cafe`, `public_library`, `special_library`, `academic_library` and `university_building` are the published vocabulary. The model leaves `category` a free string on purpose, so the vocabulary lives in
 `ingest.py`. The FacDB categories are keyed on its most specific facility type; `cafe` is not
 keyed on anything, because a sidewalk licence says the place serves food outdoors and not what
 kind of place it is, so there is nothing finer to map. A type nobody has mapped fails the import rather than
 landing in a near-enough bucket: inventing a category would publish a guess as data, and mapping
 it to the closest existing one would bury the fact that FacDB changed.
 
-FacDB's special libraries — a club's, a society's, a hospital's — are categorized `library`,
-because that is the kind of place they are. Many are open by appointment or to members only. The
-contract has no field for access and the application promises none: these are candidate
-locations, not guarantees of Wi-Fi, outlets, seating, quietness, or entry.
+`public_library` and `special_library` are separate because the difference is the one a reader
+cares about. A branch of NYPL, BPL or QPL is somewhere anyone can walk into. A special library is
+an institutional collection — a club's, a society's, a hospital's — and many are open by
+appointment or to members only, so publishing them as public would claim access the data does not
+support. That is the same overclaim `free_public_wifi` and `university` are each worded to avoid.
+
+The institution records in FacDB's higher-education subgroup are read but never published. An
+administrative point for "Daemen University-Brooklyn Branch" is a registration rather than a room,
+and campus access is restricted in any case; they exist here only to anchor the `university`
+label. The campus study space the snapshot does publish is the curated NYU list.
+
+None of this is a guarantee of entry. The contract has no field for access and the application
+promises none: these are candidate locations, not guarantees of Wi-Fi, outlets, seating,
+quietness, or entry.
 
 ## Absent values
 
@@ -112,6 +135,16 @@ It names the closest campus within 500 metres, or the campus itself for a campus
 `null` when no campus is that close. The campus list is curated — it is the higher-education
 subset of FacDB named above, the same records the importer publishes as `university` spots — and
 the field is never guessed from a facility's name, its operator, or anything else.
+
+**Cafés never carry one.** A café is a third place in its own right, not somewhere you reach
+through a campus: a library beside a campus is plausibly *its* library, while the café on the
+same corner is just a café. Leaving the field set would also have been unreliable in a way no
+parameter fixes. FacDB stores one point per institution whatever its size, so Columbia's entire
+Morningside campus is a single coordinate and its nearest café is 181 metres away, while a school
+occupying one floor has one at 67 metres. Narrowing the radius therefore drops the universities
+students attend before it drops the vocational schools nobody is looking for, and `factype`,
+`capacity` and `optype` cannot tell the two apart either — Columbia and the NY School of Interior
+Design are both `4-YEAR INDEPENDENT`, and every campus record has a capacity of `0`.
 
 A named campus is not an affiliation, an endorsement, or a claim that anyone may walk in. One
 hundred and sixty-nine metres is what the data says about "125th Street Library" and "Touro

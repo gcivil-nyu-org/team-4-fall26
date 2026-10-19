@@ -10,7 +10,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import StudySpot
+from .models import NO_PURCHASE_CATEGORIES, StudySpot
 from .search import search
 from .serializers import (
     SpotFacetsQuerySerializer,
@@ -44,7 +44,23 @@ def apply_filters(queryset: QuerySet[StudySpot], parameters: dict[str, Any]) -> 
         for parameter, lookup in LOOKUPS.items()
         if parameters.get(parameter) is not None
     }
-    return queryset.filter(**lookups) if lookups else queryset
+    narrowed = queryset.filter(**lookups) if lookups else queryset
+    return apply_cost(narrowed, parameters.get("no_purchase_needed"))
+
+
+def apply_cost(queryset: QuerySet[StudySpot], wanted: bool | None) -> QuerySet[StudySpot]:
+    """Narrow to places that cost nothing to sit in, or to those that do not.
+
+    Kept out of LOOKUPS because it is not a column. There is no cost field on
+    the model and there should not be: the answer is a property of the category
+    vocabulary, so storing it would be a copy that can fall out of step with the
+    category beside it.
+    """
+    if wanted is None:
+        return queryset
+    if wanted:
+        return queryset.filter(category__in=NO_PURCHASE_CATEGORIES)
+    return queryset.exclude(category__in=NO_PURCHASE_CATEGORIES)
 
 
 class SpotListView(APIView):
@@ -196,5 +212,8 @@ class SpotFacetsView(APIView):
         # One number rather than a list: the control is a checkbox, so the only
         # count worth having is how many spots are left when it is ticked.
         body["free_public_wifi"] = narrow("free_public_wifi").filter(free_public_wifi=True).count()
+        body["no_purchase_needed"] = (
+            narrow("no_purchase_needed").filter(category__in=NO_PURCHASE_CATEGORIES).count()
+        )
 
         return Response(body)

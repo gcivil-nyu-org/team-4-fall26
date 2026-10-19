@@ -104,6 +104,25 @@
 		</span>
 	</label>
 
+	<label class="toggle">
+		<input
+			type="checkbox"
+			checked={filters.no_purchase_needed === true}
+			onchange={(event) => set({ no_purchase_needed: event.currentTarget.checked || undefined })}
+		/>
+		<!--
+			The question a student actually asks, and not any one type: it is
+			true of every library and of the campus buildings, false only of
+			cafés. About money rather than entry.
+		-->
+		<span>
+			No purchase needed
+			{#if facets}
+				<span class="count">({facets.no_purchase_needed})</span>
+			{/if}
+		</span>
+	</label>
+
 	{#if active > 0}
 		<button type="button" onclick={() => onChange({})}>
 			Clear {active}

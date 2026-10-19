@@ -215,6 +215,7 @@ CONTRACT_FIELDS = (
     "latitude",
     "longitude",
     "university",
+    "operator",
     "free_public_wifi",
 )
 
@@ -222,14 +223,21 @@ CONTRACT_FIELDS = (
 #: that a new upstream type fails loudly instead of landing in a near-enough
 #: bucket. ``None`` is a deliberate exclusion rather than a missing mapping.
 #:
-#: ``SPECIAL LIBRARIES`` are institutional collections -- a club's, a society's,
-#: a hospital's -- and many are open by appointment or to members only. They map
-#: to ``library`` because that is the kind of place they are; the contract has
-#: no field for access, and the application promises none.
+#: ``PUBLIC LIBRARY`` and ``SPECIAL LIBRARIES`` are kept apart rather than both
+#: published as libraries, because the difference is the one a reader cares
+#: about. A branch of NYPL, BPL or QPL is somewhere anyone can walk into; a
+#: special library is an institutional collection -- a club's, a society's, a
+#: hospital's -- and many are open by appointment or to members only. Publishing
+#: the second as ``public_library`` would claim access the data does not
+#: support, which is the same overclaim ``free_public_wifi`` and ``university``
+#: are each worded to avoid.
+#:
+#: The NYCHA community centre library is a city-run facility open to the
+#: community it sits in, so it goes with the public branches.
 CATEGORY_BY_FACILITY_TYPE: dict[str, str | None] = {
-    "PUBLIC LIBRARY": "library",
-    "NYCHA COMMUNITY CENTER - LIBRARY": "library",
-    "SPECIAL LIBRARIES": "library",
+    "PUBLIC LIBRARY": "public_library",
+    "NYCHA COMMUNITY CENTER - LIBRARY": "public_library",
+    "SPECIAL LIBRARIES": "special_library",
     "ACADEMIC LIBRARIES": "academic_library",
     "2 YEAR INDEPENDENT": "university",
     "2 YEAR PROPRIETARY": "university",
@@ -501,6 +509,25 @@ def title_case(value: str) -> str:
     return "".join(rebuilt)
 
 
+def operator(record: dict[str, Any]) -> str | None:
+    """Who runs the place, where the city records it.
+
+    This is the one field that connects a branch to its library system, and
+    nothing else in the record does. A branch is named after its neighborhood --
+    "Howard Beach", "Fresh Meadows", "Glendale" -- so without this there is no
+    way to find the 67 Queens Public Library branches by asking for them.
+
+    FacDB fills it meaningfully for the 226 public branches (91 New York Public
+    Library, 68 Brooklyn, 67 Queens) and repeats the facility's own name for the
+    academic and special libraries, where it adds nothing and does no harm.
+
+    Not title-cased. Upstream already capitalises this field, unlike ``facname``,
+    and running it through title_case() would leave "Nyu Tamiment Library"
+    exactly as wrong as it arrives.
+    """
+    return text(record.get("opname"))
+
+
 def spot_id(record: dict[str, Any]) -> str:
     uid = text(record.get("uid"))
     if not uid:
@@ -662,6 +689,11 @@ def cafe_spot(record: dict[str, Any], names: dict[str, str]) -> dict[str, Any] |
         "longitude": longitude,
         # Filled in by normalize(), from the rest of the snapshot.
         "university": None,
+        # Dining Out carries `business_legal_name`, the entity holding the
+        # licence, which is "CGM-LLNR LLC" where the trading name is "JEAN'S".
+        # That is a registration rather than an operator anyone would search
+        # for, so cafes have none.
+        "operator": None,
         "free_public_wifi": False,
     }
 
@@ -788,6 +820,7 @@ def normalize(
                 "longitude": longitude,
                 # Filled in below: it depends on the rest of the snapshot.
                 "university": None,
+                "operator": operator(record),
                 "free_public_wifi": False,
             }
         )
@@ -828,13 +861,39 @@ def normalize(
     for spot in spots:
         if spot["category"] == CAMPUS_CATEGORY:
             spot["university"] = spot["name"]
+        elif spot["category"] == CAFE_CATEGORY:
+            # Cafes are third places in their own right, not somewhere you
+            # reach through a campus, so the field stays null however close one
+            # happens to be. A library beside a campus is plausibly *its*
+            # library; the cafe on the same corner is just a cafe.
+            #
+            # The measurement that settled it: 41% of cafes picked up a label
+            # here, and tightening the radius made it worse rather than better.
+            # FacDB stores one point per institution whatever its size, so
+            # Columbia's whole campus is a single coordinate and its nearest
+            # cafe is 181 m away, while a school occupying one floor has one at
+            # 67 m. Any radius strips the universities students attend before
+            # it strips the vocational schools nobody is looking for.
+            spot["university"] = None
         else:
             spot["university"] = nearest_campus(spot["latitude"], spot["longitude"], campuses)
 
-    validate(spots)
+    # Campus records anchor the derivation above and are then dropped rather
+    # than published. A FacDB campus is an administrative point for an
+    # institution, not a room: "Daemen University-Brooklyn Branch" is a
+    # registration, and nobody can sit down in it. The application lists places
+    # a person can actually go, and access to a campus is restricted anyway.
+    #
+    # They still have to be built, because the "near which campus" label on the
+    # libraries is derived from exactly these coordinates. The curated NYU
+    # buildings are the campus study space the snapshot does publish, and those
+    # were recorded by hand from public building information.
+    published = [spot for spot in spots if spot["category"] != CAMPUS_CATEGORY]
+
+    validate(published)
     # Identifiers rather than names: a renamed facility then moves one line of
     # the snapshot instead of shifting every record after it.
-    return sorted(spots, key=lambda spot: spot["id"])
+    return sorted(published, key=lambda spot: spot["id"])
 
 
 def curated_spots(path: Path = CURATED_PATH) -> list[dict[str, Any]]:

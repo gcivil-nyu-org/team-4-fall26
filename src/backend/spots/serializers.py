@@ -11,7 +11,14 @@ from typing import Any
 
 from rest_framework import serializers
 
-from .models import DEFAULT_LIMIT, MAX_FILTER_LENGTH, MAX_LIMIT, Borough, StudySpot
+from .models import (
+    DEFAULT_LIMIT,
+    MAX_FILTER_LENGTH,
+    MAX_LIMIT,
+    NO_PURCHASE_CATEGORIES,
+    Borough,
+    StudySpot,
+)
 
 
 class StudySpotSerializer(serializers.ModelSerializer):
@@ -21,6 +28,22 @@ class StudySpotSerializer(serializers.ModelSerializer):
     the shared contract, and a column added to the model should not silently
     become part of the public API.
     """
+
+    #: Derived here rather than stored, and rather than left to the browser.
+    #:
+    #: It is a pure function of ``category``, so a column would be a copy that
+    #: can fall out of step with the value beside it. Computing it in the
+    #: browser instead would put the same rule in two languages, which is the
+    #: drift this avoids: ``NO_PURCHASE_CATEGORIES`` stays the one definition
+    #: and every consumer reads the answer.
+    #:
+    #: This is why the API publishes one field more than ``data/spots.json``
+    #: stores. The snapshot holds what the city supplied; this is what the
+    #: contract says about it.
+    no_purchase_needed = serializers.SerializerMethodField()
+
+    def get_no_purchase_needed(self, spot: StudySpot) -> bool:
+        return spot.category in NO_PURCHASE_CATEGORIES
 
     class Meta:
         model = StudySpot
@@ -34,7 +57,9 @@ class StudySpotSerializer(serializers.ModelSerializer):
             "latitude",
             "longitude",
             "university",
+            "operator",
             "free_public_wifi",
+            "no_purchase_needed",
         ]
 
 
@@ -75,6 +100,24 @@ def borough_field() -> BoroughField:
         min_length=1,
         max_length=MAX_FILTER_LENGTH,
         help_text="Case-insensitive exact match on one of the five boroughs.",
+    )
+
+
+def cost_field() -> serializers.BooleanField:
+    """The no-purchase filter.
+
+    ``false`` is a filter in its own right -- places that do expect a purchase,
+    which is every cafe -- rather than the absence of one.
+    """
+    return serializers.BooleanField(
+        required=False,
+        allow_null=True,
+        default=None,
+        help_text=(
+            "Restrict to places where sitting down costs nothing, or to those where "
+            "it does not. About money rather than entry: a campus building is free "
+            "and still wants the university's credentials."
+        ),
     )
 
 
@@ -158,6 +201,7 @@ class SpotQuerySerializer(StrictQuerySerializer):
         "contains are what GET /spots/facets reports."
     )
     free_public_wifi = wifi_field()
+    no_purchase_needed = cost_field()
     borough = borough_field()
     university = filter_field(
         "Case-insensitive exact match on the institution a spot belongs to. Only "
@@ -187,6 +231,7 @@ class SpotSearchQuerySerializer(StrictQuerySerializer):
     category = filter_field("Case-insensitive exact match on the category.")
     university = filter_field("Case-insensitive exact match on the campus.")
     free_public_wifi = wifi_field()
+    no_purchase_needed = cost_field()
 
     limit = limit_field()
     offset = offset_field()
@@ -218,3 +263,4 @@ class SpotFacetsQuerySerializer(StrictQuerySerializer):
     category = filter_field("Case-insensitive exact match on the category.")
     university = filter_field("Case-insensitive exact match on the campus.")
     free_public_wifi = wifi_field()
+    no_purchase_needed = cost_field()

@@ -26,19 +26,32 @@ No route has a trailing slash, and the application does not redirect one onto th
 {
   "id": "facdb:eec118768e15a5e03d3354abda7b00da",
   "name": "125th Street Library",
-  "category": "library",
+  "category": "public_library",
   "address": "224 East 125 Street, New York, NY 10035",
   "neighborhood": "East Harlem (North)",
   "borough": "Manhattan",
   "latitude": 40.803027,
   "longitude": -73.934853,
-  "university": "Touro University - Harlem"
+  "university": "Touro University - Harlem",
+  "operator": "New York Public Library",
+  "free_public_wifi": true,
+  "no_purchase_needed": true
 }
 ```
 
 The records represent public third places from NYC Open Data — today the libraries and campuses of the city's facilities database. They are candidate gathering and study locations; the API must not imply that unverified amenities are available. This response shape belongs to the shared contract. Changes require review from frontend, API, data, and search owners.
 
-`category` currently takes one of `library`, `academic_library`, `university`, or `university_building`. `university_building` is a campus building a student can work in; the city's facilities database registers institutions and administrative points rather than buildings, so these come from the curated list in `data/nyu_buildings.json` and all carry the `nyu:` identifier prefix. `cafe` is part of the published vocabulary and has no source yet: see [Data and search](data-and-search.md). The API does not constrain the value: the vocabulary belongs to the importer, and pinning it in the serving schema would put every category change through a migration. `free_public_wifi` is true when a free public Wi-Fi hotspot the city publishes
+`category` currently takes one of `cafe`, `public_library`, `special_library`, `academic_library` and `university_building`.
+
+`public_library` and `special_library` are kept apart because the difference is the one a reader cares about: a branch of NYPL, BPL or QPL is somewhere anyone can walk into, while a special library is an institutional collection — a club's, a society's, a hospital's — and many are open by appointment or to members only.
+
+`university_building` is a campus building a student can work in. The city's facilities database registers institutions and administrative points rather than buildings, so these come from the curated list in `data/nyu_buildings.json` and all carry the `nyu:` identifier prefix. The institution records themselves are *not* published: an administrative point is not a room, and campus access is restricted. They are read only to anchor the `university` label.
+
+`cafe` comes from the outdoor-dining licence register: see [Data and search](data-and-search.md). The API does not constrain the value: the vocabulary belongs to the importer, and pinning it in the serving schema would put every category change through a migration.
+
+`no_purchase_needed` is true where sitting down costs nothing — every library and every campus building, and no café. It answers the question a reader actually has, which no single category answers, and **it is about money rather than entry**: a campus building is free and still wants the university's credentials, and a special library may be open only by appointment.
+
+It is the one field the API publishes that `data/spots.json` does not store. It is a pure function of `category`, so a column would be a copy that can fall out of step with the value beside it, and computing it in the browser would put the same rule in two languages. `NO_PURCHASE_CATEGORIES` in `spots/models.py` is the single definition, and it is an allowlist so that a category added upstream is never silently published as free. `free_public_wifi` is true when a free public Wi-Fi hotspot the city publishes
 sits within 25 m, derived from `yjub-udmw`. False means none is recorded, which
 is not the same as there being no Wi-Fi: a campus building's network needs the
 university's credentials, and the city has no reason to know about it. The field
@@ -47,6 +60,8 @@ borough names and the database refuses any other. `neighborhood` is the 2020 Nei
 
 ```{important}
 `university` is an addition to the previously agreed contract and still needs owner sign-off. It is proximity and nothing else: it names the closest campus within 500 metres, or the campus itself for a campus record, and is `null` when no campus is that close. The campus list is curated — the college and university records of the city's facilities database — and the field is never guessed from a spot's name, its operator, or anything else. It is not an affiliation, an endorsement, or an access claim: a named campus does not mean the institution is connected to the spot or that the public may use the room. In the example above, 169 metres separate a public library branch from a campus with no relationship to it.
+
+Cafés never carry one. A café is a third place in its own right rather than somewhere reached through a campus, and the measurement bears that out: FacDB stores a single point per institution whatever its size, so Columbia's whole campus is one coordinate with its nearest café 181 metres away, while a school occupying one floor has one at 67 metres. Any radius would drop the universities students attend before the vocational schools nobody is looking for.
 ```
 
 ## Listing study spots
@@ -124,14 +139,15 @@ Every non-2xx response uses one envelope:
 ## Filtering
 
 Both `GET /spots` and `GET /spots/search` take the same filters: `neighborhood`,
-`borough`, `category`, `university`, and `free_public_wifi`. They combine with
+`borough`, `category`, `university`, `free_public_wifi`, and `no_purchase_needed`. They combine with
 AND, so supplying two narrows rather than widens, and on the search endpoint
 they narrow the candidates *before* ranking. Filtering after ranking would drop
 the best matches out of a page rather than out of the result set, and the
 reported total would describe something the caller never sees.
 
-`free_public_wifi` takes `true` or `false`. False is a filter in its own right,
-not the absence of one.
+`free_public_wifi` and `no_purchase_needed` each take `true` or `false`. False
+is a filter in its own right -- places that do expect a purchase, which is every
+café -- not the absence of one.
 
 A present but empty parameter is a `422`, the same as an unrecognized one: a
 filter whose value was lost should fail rather than quietly widen the search.
@@ -143,7 +159,8 @@ filter whose value was lost should fail rather than quietly widen the search.
   "boroughs": [{ "value": "Manhattan", "count": 151 }],
   "categories": [{ "value": "library", "count": 248 }],
   "universities": [{ "value": "New York University", "count": 12 }],
-  "free_public_wifi": 206
+  "free_public_wifi": 465,
+  "no_purchase_needed": 264
 }
 ```
 
@@ -154,9 +171,9 @@ snapshot contains, so a hard-coded list would silently stop matching when the
 data changes. Counts are included because offering a value that matches nothing
 is worse than not offering it.
 
-`free_public_wifi` is a single number rather than a list of values, because the
-control it serves is a checkbox: the only useful count is how many spots remain
-when it is ticked.
+`free_public_wifi` and `no_purchase_needed` are single numbers rather than lists
+of values, because the controls they serve are checkboxes: the only useful count
+is how many spots remain when each is ticked.
 
 The endpoint takes every filter the listing endpoints take, plus `q`, all
 optional, and no `limit` or `offset` -- a facet list is as long as the number of
@@ -170,7 +187,8 @@ narrowing the results: under `?borough=Bronx` the unfiltered category counts
 would still offer a type the Bronx does not contain. Its own filter is left out
 so that a chosen value does not hide the alternatives -- with `?borough=Bronx`
 all five boroughs are still listed, so there is a way to switch, while
-`categories`, `universities` and `free_public_wifi` narrow to the Bronx.
+`categories`, `universities`, `free_public_wifi` and `no_purchase_needed` narrow
+to the Bronx.
 
 A client that filters should refetch this whenever the filters or the query
 change, which is one request per interaction. Returning results and facets in
@@ -200,9 +218,27 @@ count for different amounts:
 | Field | Weight | Why |
 |---|---|---|
 | `name` | highest | what the place is called is almost always what was meant |
-| `university` | second | the field that makes a campus find its buildings |
+| `university`, `operator` | second | which institution this is — the campus it sits by, and who runs it |
 | `neighborhood` | third | where it is, not what it is |
-| `address` | lowest | a place *called* Washington beats the places *on* Washington Street |
+| `address`, `borough`, `category` | lowest | a place *called* Washington beats the places *on* Washington Street |
+
+`operator` is who runs the place, and it is the only field that connects a
+branch to its library system: a branch is named after its neighbourhood —
+*Howard Beach*, *Fresh Meadows*, *Glendale* — so nothing else in the record says
+whether it is NYPL, BPL or QPL. Without it `qpl` found two spots; with it, 68.
+It is null for cafés, whose licence names only the company holding it, and for
+academic and special libraries it simply repeats the facility's own name.
+
+`borough` and `category` are matched despite each having a filter of its own,
+because a search box is where people type them first. Without them
+`bronx public library` found three spots and put a Manhattan one first, and
+`manhattan library` found five of the sixty-eight.
+
+They cannot flood a result set, because every word still has to match:
+`bobst library` returns the one library named Bobst, since only one row matches
+both words. A bare `cafe` does grow to every café, which is what the word means.
+The category needs no transformation either -- Postgres splits on the
+underscore, so `public_library` indexes exactly as `public library` does.
 
 Requiring every word is what keeps `library bobst` to the one library it
 describes. Scoring the query against the best-matching run of words instead --
@@ -242,6 +278,15 @@ An initialism is expanded before the query reaches Postgres, because no fuzzy
 algorithm connects `NYPL` to `New York Public Library` -- they share almost no
 trigrams. Every word is expanded, so `nyu library` becomes `New York University
 library` and means it. The list is in `spots/search.py`.
+
+**The expansion is a hint, not a replacement.** If it matches nothing, the
+literal term gets a turn before the fuzzy pass does. `CUNY` is the case that
+proved it necessary: it expands to `City University of New York`, which no
+record contains -- the campuses are named `CUNY Hunter College` -- so the single
+attempt failed and the query fell through to trigrams, where `New York Cit...`
+is a close match for *New York City Bagel & Coffee House*. Typing CUNY returned
+bagel shops. The fuzzy pass now also runs on what was typed rather than on the
+expansion, so nothing is ever matched against words the search box substituted.
 
 ### As you type
 

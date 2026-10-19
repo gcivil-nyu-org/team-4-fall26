@@ -225,7 +225,9 @@ class TestOneSpot:
             "latitude",
             "longitude",
             "university",
+            "operator",
             "free_public_wifi",
+            "no_purchase_needed",
         }
 
     def test_an_unknown_identifier_is_a_404(self) -> None:

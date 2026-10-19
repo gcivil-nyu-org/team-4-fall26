@@ -51,23 +51,54 @@
 				{#if spot.address}
 					<p class="address">{spot.address}</p>
 				{/if}
+				{#if spot.operator && spot.operator !== spot.name}
+					<!--
+						Who runs it, which for a library branch is its system. Worth
+						showing because the three systems have separate membership,
+						and a branch's own name never says which one it belongs to.
+
+						Hidden when it merely repeats the name, which is what FacDB
+						stores for the academic and special libraries.
+					-->
+					<p class="operator">{spot.operator}</p>
+				{/if}
 				{#if spot.university}
 					<!-- Proximity, never affiliation: see the contract. -->
 					<p class="campus">Near {spot.university}</p>
 				{/if}
-				{#if spot.free_public_wifi}
+				{#if spot.no_purchase_needed || spot.free_public_wifi}
 					<!--
-						Shown only when true. False means no free public hotspot is
-						recorded within 25 m, which is not the same as no Wi-Fi, so
-						saying "no Wi-Fi" would assert more than the data supports.
+						Both are shown only when true, and for the same reason: the
+						absence of one is not evidence of its opposite. A false
+						free_public_wifi means no hotspot the city publishes sits
+						within 25 m, which is not the same as no Wi-Fi, and saying
+						"no Wi-Fi" would assert more than the data supports.
 					-->
-					<p class="wifi">
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path d="M5 12.5a10 10 0 0 1 14 0" />
-							<path d="M8.5 16a5 5 0 0 1 7 0" />
-							<circle cx="12" cy="19.5" r="1" />
-						</svg>
-						Free public Wi-Fi
+					<p class="badges">
+						{#if spot.no_purchase_needed}
+							<!--
+								Money, not entry. A campus building costs nothing and
+								still wants the university's credentials, which is why
+								this does not say "open to all".
+							-->
+							<span class="badge">
+								<svg viewBox="0 0 24 24" aria-hidden="true">
+									<path d="M3.5 12.3V5.2a1.7 1.7 0 0 1 1.7-1.7h7.1l8.2 8.2-8.8 8.8-8.2-8.2Z" />
+									<circle cx="8" cy="8" r="1.1" />
+								</svg>
+								No purchase needed
+							</span>
+						{/if}
+						{#if spot.free_public_wifi}
+							<span class="badge">
+								<svg viewBox="0 0 24 24" aria-hidden="true">
+									<path d="M5 12.5a10 10 0 0 1 14 0" />
+									<path d="M8.5 16a5 5 0 0 1 7 0" />
+									<circle cx="12" cy="19.5" r="1" />
+								</svg>
+								Free public Wi-Fi
+							</span>
+						{/if}
 					</p>
 				{/if}
 			</li>
@@ -135,6 +166,7 @@
 	}
 
 	.address,
+	.operator,
 	.campus {
 		margin: 10px 0 0;
 		color: var(--color-muted);
@@ -146,21 +178,29 @@
 		font-style: italic;
 	}
 
-	.wifi {
+	.badges {
 		display: flex;
+		flex-wrap: wrap;
+		gap: 6px 14px;
+		margin: 10px 0 0;
+	}
+
+	.badge {
+		display: inline-flex;
 		align-items: center;
 		gap: 6px;
-		margin: 10px 0 0;
 		color: var(--color-brand-hover);
 		font-size: 13px;
 		font-weight: 650;
 	}
 
-	.wifi svg {
+	.badge svg {
 		width: 15px;
+		flex: none;
 		fill: none;
 		stroke: currentColor;
 		stroke-linecap: round;
+		stroke-linejoin: round;
 		stroke-width: 2;
 	}
 

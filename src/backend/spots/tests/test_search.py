@@ -47,7 +47,8 @@ RECORDS: list[dict[str, Any]] = [
     {
         "id": "facdb:nypl-53",
         "name": "53rd Street Library",
-        "category": "library",
+        "category": "public_library",
+        "operator": "New York Public Library",
         "address": "18 West 53 Street",
         "neighborhood": "Midtown-Times Square",
         "borough": "Manhattan",
@@ -58,13 +59,26 @@ RECORDS: list[dict[str, Any]] = [
     {
         "id": "facdb:baychester",
         "name": "Baychester Library",
-        "category": "library",
+        "category": "public_library",
         "address": "2049 Asch Loop North",
         "neighborhood": "Co-op City",
         "borough": "Bronx",
         "latitude": 40.8714,
         "longitude": -73.8278,
         "university": None,
+    },
+    {
+        # Its campus says CUNY; nothing anywhere says "City University of New
+        # York", which is what the initialism expands to.
+        "id": "facdb:newman",
+        "name": "Newman Library",
+        "category": "academic_library",
+        "address": "151 East 25 Street",
+        "neighborhood": "Gramercy",
+        "borough": "Manhattan",
+        "latitude": 40.7399,
+        "longitude": -73.9829,
+        "university": "CUNY Bernard M. Baruch College",
     },
     {
         "id": "dining:grumpy",
@@ -277,11 +291,14 @@ class TestEveryWordHasToMatch:
     """
 
     def test_a_second_word_narrows_instead_of_widening(self, spots: list[StudySpot]) -> None:
-        assert names("library") == [
+        # Order is relevance then name, and all four score the same on one
+        # word, so the set is what matters here.
+        assert set(names("library")) == {
             "53rd Street Library",
             "Baychester Library",
             "Elmer Holmes Bobst Library",
-        ]
+            "Newman Library",
+        }
         assert names("library bobst") == ["Elmer Holmes Bobst Library"]
 
     def test_word_order_does_not_matter(self, spots: list[StudySpot]) -> None:
@@ -296,7 +313,11 @@ class TestEveryWordHasToMatch:
         assert names('"Square Washington"') == []
 
     def test_a_leading_minus_excludes(self, spots: list[StudySpot]) -> None:
-        assert names("library -bobst") == ["53rd Street Library", "Baychester Library"]
+        assert set(names("library -bobst")) == {
+            "53rd Street Library",
+            "Baychester Library",
+            "Newman Library",
+        }
 
 
 class TestTheTwoPassesInOrder:
@@ -313,3 +334,87 @@ class TestTheTwoPassesInOrder:
 
     def test_a_query_matching_neither_returns_nothing(self, spots: list[StudySpot]) -> None:
         assert names("helicopter") == []
+
+
+class TestTheBoroughAndCategoryAreSearchable:
+    """Both have a filter of their own, and a search box is where people type
+    them first.
+
+    Without them "bronx public library" found three spots in the real snapshot
+    and put a Manhattan one first, and "manhattan library" found five of the
+    sixty-eight.
+    """
+
+    def test_a_borough_finds_what_is_in_it(self, spots: list[StudySpot]) -> None:
+        assert names("Bronx") == ["Baychester Library"]
+
+    def test_a_category_finds_its_own_kind(self, spots: list[StudySpot]) -> None:
+        # Typed as a person would write it; Postgres splits the underscore in
+        # "public_library" itself, so the stored value indexes the same way.
+        assert set(names("public library")) == {"53rd Street Library", "Baychester Library"}
+
+    def test_a_borough_and_a_category_together(self, spots: list[StudySpot]) -> None:
+        assert names("bronx public library") == ["Baychester Library"]
+
+    def test_a_broad_word_still_cannot_flood_a_narrow_one(self, spots: list[StudySpot]) -> None:
+        # The protection against clutter is the AND, not a weight: every
+        # academic library matches "library", only one matches "bobst".
+        assert names("library bobst") == ["Elmer Holmes Bobst Library"]
+
+    def test_the_name_still_outranks_the_borough(self, spots: list[StudySpot]) -> None:
+        # Lowest weight, so a place called Manhattan would beat the places in
+        # it. Nothing here is called Bronx, so this checks the weaker claim
+        # that a name match leads.
+        found = names("Baychester")
+        assert found[0] == "Baychester Library"
+
+
+class TestAnExpansionThatMatchesNothing:
+    """The literal term gets a turn before the fuzzy pass does.
+
+    CUNY is the case that proved it: the expansion is "City University of New
+    York", which no record contains, so the only attempt failed and the query
+    fell through to trigrams -- where "New York Cit..." matched "New York City
+    Bagel & Coffee House". Typing CUNY returned bagel shops.
+    """
+
+    def test_the_expansion_itself_finds_nothing(self, spots: list[StudySpot]) -> None:
+        assert expand("cuny") == "City University of New York"
+        assert precise("City University of New York", StudySpot.objects.all()).count() == 0
+
+    def test_the_literal_term_finds_the_campus(self, spots: list[StudySpot]) -> None:
+        assert names("cuny") == ["Newman Library"]
+
+    def test_an_expansion_that_does_match_is_still_preferred(self, spots: list[StudySpot]) -> None:
+        # NYU is the case the expansion exists for: no record is named "NYU",
+        # and two carry "New York University" as their campus.
+        assert expand("nyu") == "New York University"
+        assert set(names("nyu")) == {
+            "Elmer Holmes Bobst Library",
+            "Kimmel Center for University Life",
+        }
+
+    def test_a_misspelling_still_reaches_the_fuzzy_pass(self, spots: list[StudySpot]) -> None:
+        # Nothing above may break the reason the second pass exists.
+        assert "53rd Street Library" in names("libary")
+
+
+class TestTheOperatorIsSearchable:
+    """What makes an acronym for a library system work.
+
+    "53rd Street Library" does not say who runs it, and neither does any other
+    branch -- they are named after their neighborhoods. Only the operator does.
+    """
+
+    def test_a_system_finds_its_branches(self, spots: list[StudySpot]) -> None:
+        assert "53rd Street Library" in names("New York Public Library")
+
+    def test_its_initialism_does_too(self, spots: list[StudySpot]) -> None:
+        # The expansion exists precisely because NYPL and its words share
+        # almost no trigrams.
+        assert expand("nypl") == "New York Public Library"
+        assert "53rd Street Library" in names("nypl")
+
+    def test_a_branch_that_names_no_system_is_not_dragged_in(self, spots: list[StudySpot]) -> None:
+        # Baychester has no operator in the fixture.
+        assert "Baychester Library" not in names("nypl")

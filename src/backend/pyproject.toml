@@ -8,7 +8,7 @@ dependencies = [
     # Held to the 5.2 LTS series rather than tracking the latest Django. 5.2 is
     # supported until April 2028; 6.x releases are superseded roughly every
     # eight months, and the wider ecosystem lags them.
-    "django>=5.2.7,<6.0",
+    "django>=5.2.7,<7.0",
     "djangorestframework>=3.16.1",
     "dj-database-url>=3.0.1",
     "psycopg[binary]>=3.2.10",

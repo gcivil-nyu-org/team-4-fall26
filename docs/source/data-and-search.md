@@ -56,4 +56,4 @@ within 60 m of a curated building and "NYU Tamiment Library" is a distinct colle
 Bobst with its own street address. See [`data/README.md`](https://github.com/gcivil-nyu-org/team-4-fall26/blob/develop/data/README.md)
 for the measurements.
 
-Database code belongs to the backend's `spots` app rather than to this source-data directory: the model, the migrations, and the `load_spots` command live there, and nothing in `data/` talks to a database. The serving table and any separate search index remain rebuildable projections of `spots.json` until the product accepts non-reproducible writes — see [Postgres database](database.md).
+Study-spot database code belongs to the backend's `spots` app. Its model, migrations, and `load_spots` command live there, and nothing in `data/` talks to a database. Public spot and search data remain rebuildable projections of `spots.json`. Accounts and private favourites are not rebuildable. The loader preserves favourites for surviving IDs and removes them for absent IDs. An empty replacement removes all spots and favourites. Failed validation or writes leave spots and favourites unchanged. See [Postgres database](database.md).

@@ -81,3 +81,25 @@ class Account(models.Model):
 
     def __str__(self) -> str:
         return str(self.username or self.email or self.user.username)
+
+
+class Favourite(models.Model):
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="favourites")
+    spot = models.ForeignKey("spots.StudySpot", on_delete=models.CASCADE, related_name="favourites")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["account", "spot"], name="favourite_account_spot_unique"
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["account", "-created_at", "-id"], name="favourite_account_order_idx"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.account_id}: {self.spot_id}"

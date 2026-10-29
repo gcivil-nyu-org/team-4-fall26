@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { onMount, untrack } from 'svelte';
+	import { goto } from '$app/navigation';
 	import SiteHeader from './SiteHeader.svelte';
 	import SignUpForm from './SignUpForm.svelte';
 	import type { CompleteSignUp } from './contract';
@@ -10,6 +12,27 @@
 
 	const account = $derived(session.account);
 	let refreshing = $state(false);
+	let mounted = $state(false);
+
+	onMount(() => {
+		const returnTo = new URLSearchParams(window.location.search).get('returnTo');
+		if (returnTo) session.rememberReturnTo(returnTo);
+		mounted = true;
+	});
+
+	$effect(() => {
+		if (
+			mounted &&
+			session.status === 'signed-in' &&
+			account?.email_verified &&
+			account.account_type !== null
+		) {
+			untrack(() => {
+				const next = session.consumeReturnTo();
+				if (next && next !== '/account') void goto(resolve(next as '/'), { replaceState: true });
+			});
+		}
+	});
 
 	const joined = $derived(
 		account

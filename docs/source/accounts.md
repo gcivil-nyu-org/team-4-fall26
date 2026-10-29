@@ -6,7 +6,7 @@ Sign-up starts on StudySpot's own page, `/signup`. It asks whether the account i
 
 StudySpot keeps an `Account` row per person, recording whether they are a student or a business owner.
 
-Accounts are optional for running the site. With no Auth0 settings, `GET /auth/config` reports `{"enabled": false}`, the header shows no log-in controls, and search works exactly as before.
+Accounts are optional for public browsing. With no Auth0 settings, `GET /auth/config` reports `{"enabled": false}`. The header hides login and Favourites navigation, Save and Unsave controls are hidden, and public search and spot details remain available.
 
 ## How it fits together
 
@@ -32,6 +32,18 @@ The first `GET /account` after a sign-up creates the account. Its `account_type`
 - **Business:** needs a verified email and a business name.
 
 The choice is made once.
+
+## Student favourites
+
+Only completed student accounts can save, list, or remove favourites. The API checks the stored `account_type` on every operation. A valid login alone is not enough. Business and unfinished accounts receive `409 conflict`. Community guest access does not grant access to favourites.
+
+Search results and study-spot detail pages offer **Save** and **Unsave** controls. Completed students also have a **Favourites** page at `/favourites`, with removal controls. Business accounts have no favourites controls.
+
+When a visitor selects **Save**, an inline prompt offers login or signup. After authentication and any required account completion, the browser returns to the originating `/spots/{id}` page. The continuation survives email-verification refreshes and manual completion. It accepts only same-origin paths, belongs to the current login journey, and is cleared on logout or an unrelated journey. It never contains a saved-action instruction. The student must select **Save** again.
+
+Each account's favourites are private. The server derives ownership from the authenticated account, never from an account ID supplied by the browser. The browser uses the access token's stable subject to scope its saved state, not an email or a username. It clears that state on logout or account changes, including changes signaled by another tab. A failed action preserves the last confirmed state and offers a retry rather than reporting success.
+
+The `/favourites` HTML is a prerendered shell with no personal data. The browser loads the current student's list through authenticated requests. Favourite API responses, including errors, are private and not stored in caches. See the [Favourites API](api.md#favourites) for pagination, ordering, and idempotent save and removal behavior.
 
 ## Setting up Auth0
 

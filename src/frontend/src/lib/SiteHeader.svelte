@@ -24,8 +24,9 @@
 		<a class="nav-link" href={resolve('/communities')}>Communities</a>
 		<!-- svelte-ignore a11y_invalid_attribute -->
 		<a class="nav-link" href="#">Map</a>
-		<!-- svelte-ignore a11y_invalid_attribute -->
-		<a class="nav-link" href="#">Saved</a>
+		{#if session.status === 'signed-out' || (session.status === 'signed-in' && session.account?.account_type !== 'business')}
+			<a class="nav-link" href={resolve('/favourites')}>Favourites</a>
+		{/if}
 		<!-- svelte-ignore a11y_invalid_attribute -->
 		<a class="nav-link" href="#">Suggest a spot</a>
 
@@ -43,7 +44,7 @@
 			</a>
 		{:else if session.status === 'signed-out'}
 			<button class="nav-link" type="button" onclick={() => session.logIn(here)}>Log in</button>
-			<a class="sign-in" href={resolve('/signup')}>Sign up</a>
+			<a class="sign-in" href={resolve(`/signup?returnTo=${encodeURIComponent(here)}`)}>Sign up</a>
 		{/if}
 	</nav>
 </header>

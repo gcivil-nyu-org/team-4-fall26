@@ -5,6 +5,8 @@
 	import { mapsUrl } from './maps';
 	import { orderByTrunk, routeColour, routeTextColour, walkMinutes } from './subway';
 	import type { StudySpot } from './contract';
+	import FavouriteButton from './FavouriteButton.svelte';
+	import { favourites } from './favourites.svelte';
 
 	type Props = {
 		spots: StudySpot[];
@@ -12,9 +14,17 @@
 		hasMore: boolean;
 		loadingMore?: boolean;
 		onShowMore?: () => void;
+		showFavouriteError?: boolean;
 	};
 
-	let { spots, total, hasMore, loadingMore = false, onShowMore }: Props = $props();
+	let {
+		spots,
+		total,
+		hasMore,
+		loadingMore = false,
+		onShowMore,
+		showFavouriteError = true
+	}: Props = $props();
 
 	/**
 	 * The spot whose link was just copied, so one card can say so without the
@@ -85,6 +95,12 @@
 			Showing {spots.length} of {total} places
 		{/if}
 	</p>
+	{#if showFavouriteError && favourites.status === 'error'}
+		<p role="alert">{favourites.error}</p>
+		<button type="button" onclick={() => favourites.load({ refresh: true })}>
+			Retry loading favourites
+		</button>
+	{/if}
 
 	<ul>
 		{#each spots as spot (spot.id)}
@@ -199,7 +215,7 @@
 					</p>
 				{/if}
 
-				<p class="actions">
+				<div class="actions">
 					<!--
 						A link, not an embedded map: it opens the viewer's own maps app with
 						the place pinned, where walking and subway directions are one tap
@@ -228,7 +244,8 @@
 							Share
 						{/if}
 					</button>
-				</p>
+					<FavouriteButton {spot} showLoadError={false} />
+				</div>
 			</li>
 		{/each}
 	</ul>
@@ -402,6 +419,7 @@
 		position: relative;
 		z-index: 1;
 		display: flex;
+		flex-wrap: wrap;
 		gap: 10px;
 		margin: 18px 0 0;
 		margin-top: auto;

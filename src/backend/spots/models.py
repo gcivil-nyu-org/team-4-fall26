@@ -259,6 +259,22 @@ class StudySpot(models.Model):
         ),
     )
 
+    #: The business account that manages this spot, or null for a spot the
+    #: importer took from a city dataset. Null is the common case and means
+    #: "nobody on StudySpot manages it", not "unknown".
+    #:
+    #: Cascades because an owned listing has no source but its owner: with the
+    #: account gone nobody could correct or remove it, and the next
+    #: ``load_spots`` would not restore it either.
+    owner = models.ForeignKey(
+        "accounts.Account",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name="listings",
+        help_text="The business account that manages this listing; null for imported spots.",
+    )
+
     #: What free-text search matches against, maintained by Postgres rather
     #: than by application code: a generated column cannot fall out of step with
     #: the row the way a column the loader has to remember to update can.

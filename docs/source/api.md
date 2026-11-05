@@ -15,6 +15,9 @@ No route has a trailing slash, and the application does not redirect one onto th
 | `GET /account` | The logged-in person's account. Needs a bearer token. |
 | `POST /account` | Finishes sign-up as a student or a business. Needs a bearer token. |
 | `GET /usernames/{username}` | Whether a username is free to choose. |
+| `GET /favourites` | Returns the current student account's private, paginated favourites. Needs a bearer token. |
+| `PUT /favourites/{spot_id}` | Saves a study spot for the current student account. Needs a bearer token. |
+| `DELETE /favourites/{spot_id}` | Removes a study spot from the current student account's favourites. Needs a bearer token. |
 
 `GET /health/live` returns:
 
@@ -139,6 +142,35 @@ Unknown query parameters are rejected rather than ignored, so a misspelled filte
 curl --fail 'http://localhost:7501/spots?borough=Brooklyn&name=library&limit=5'
 ```
 
+## Favourites
+
+A favourite is a private saved relationship between one student account and one study spot. Every operation requires a valid Auth0 bearer token and a completed student account, stored as `Account.account_type = "student"`. Business and unfinished accounts receive `409 conflict`, even for removal of a missing favourite. Community guest credentials and Django session cookies do not authorize these routes.
+
+The API resolves the owner from the authenticated account. A client cannot select another account through a path, query parameter, or request body. Public study-spot responses remain unchanged and contain no saved state. All favourites responses, including errors, have `Cache-Control` directives `private` and `no-store`.
+
+### `GET /favourites`
+
+Returns the same `items` and `pagination` envelope as [Listing study spots](#listing-study-spots). Each item uses the unchanged study-spot summary and reflects the current database record, not a copy from when it was saved.
+
+| Parameter | Type | Default | Behavior |
+|---|---|---|---|
+| `limit` | integer | `20` | Page size, between 1 and 100. |
+| `offset` | integer | `0` | Nonnegative number of favourites to skip. |
+
+These are the only supported query parameters. Malformed, out-of-range, or unknown parameters return `422 validation_error`. `total` counts this account's favourites, `count` counts this page's items, and `has_more` is true when `offset + count < total`.
+
+Results are newest-saved first, ordered by descending favourite creation time and then descending favourite row ID. Saving an existing favourite does not change its timestamp or move it to the front. Offset pages can shift when the collection changes between requests.
+
+### `PUT /favourites/{spot_id}`
+
+Saves the spot without a request body and returns `204` with no response body. A repeated save also returns `204`. A database uniqueness constraint permits only one favourite per account and spot. Saving a spot that does not exist returns `404 not_found`.
+
+### `DELETE /favourites/{spot_id}`
+
+Removes only the authenticated account's favourite and returns `204` with no response body. Removal is idempotent, including when the pair or the study spot no longer exists. Another account's favourite is never removed.
+
+Successful dataset refreshes preserve favourites for surviving spot IDs and remove favourites for absent IDs. [Data lifecycle](database.md#data-lifecycle) describes empty replacements and failed refreshes.
+
 ## Errors
 
 Every non-2xx response uses one envelope:
@@ -163,10 +195,10 @@ Every non-2xx response uses one envelope:
 
 | Status | `code` | Raised when |
 |---|---|---|
-| 401 | `unauthorized` | An account route was called without a bearer token, or with one that does not verify. |
-| 404 | `not_found` | No spot has the requested identifier. |
+| 401 | `unauthorized` | A protected route was called without a bearer token, or with one that does not verify. |
+| 404 | `not_found` | No spot has the requested identifier, except for idempotent favourite removal. |
 | 405 | `method_not_allowed` | The route exists but the method does not. |
-| 409 | `conflict` | Sign-up was already finished for this account. |
+| 409 | `conflict` | Sign-up was already finished, or a favourites operation requires a completed student account. |
 | 422 | `validation_error` | A parameter is missing, malformed, out of range, or unrecognized. |
 | 500 | `internal_error` | An unhandled failure. The cause is logged, never returned. |
 | 503 | `database_unavailable` | Postgres could not answer the query, or has never been migrated. |

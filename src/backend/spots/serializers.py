@@ -67,6 +67,49 @@ class BoroughField(serializers.CharField):
         )
 
 
+class ListingSerializer(serializers.ModelSerializer):
+    """What a business owner may write about their own listing.
+
+    Only facts the owner knows first-hand. The identifier, the owner, and the
+    fields the importer derives from city data -- the nearest subway station,
+    the nearby-spot count, the city Wi-Fi hotspot and the sidewalk licence --
+    are not writable here, and a body that names one is rejected rather than
+    quietly ignored. Responses use :class:`StudySpotSerializer`, so a listing
+    looks to every reader like any other spot.
+    """
+
+    borough = BoroughField()
+
+    class Meta:
+        model = StudySpot
+        fields = [
+            "name",
+            "category",
+            "address",
+            "neighborhood",
+            "borough",
+            "latitude",
+            "longitude",
+            "no_purchase_needed",
+            "indoor_seating",
+            "venue_wifi",
+            "opening_hours",
+        ]
+        # These columns are null when there is no value. Allowing "" as well
+        # would give "no value" two spellings.
+        extra_kwargs = {
+            name: {"allow_blank": False} for name in ("address", "neighborhood", "opening_hours")
+        }
+
+    def to_internal_value(self, data: Any) -> dict[str, Any]:
+        unknown = sorted(set(data) - set(self.fields))
+        if unknown:
+            raise serializers.ValidationError(
+                {name: "This field cannot be set on a listing." for name in unknown}
+            )
+        return super().to_internal_value(data)
+
+
 def filter_field(help_text: str) -> serializers.CharField:
     """A trimmed, non-blank, bounded filter value."""
     return serializers.CharField(

@@ -61,9 +61,16 @@ class Notifications(CommunityView):
         mentioned = direct_mention | Q(mentions__contains=["role:everyone"])
         for role, condition in [("member", member), ("owner", owner), ("moderator", mod)]:
             mentioned |= condition & Q(mentions__contains=["role:" + role])
-        channels = Message.objects.filter(
-            owner | mod | (member & Q(channel__private=False))
-        ).exclude(own_messages)
+        channels = (
+            Message.objects.filter(owner | mod | (member & Q(channel__private=False)))
+            .filter(
+                Q(channel__password_hash="")
+                | Q(channel_id__in=request.session.get("unlocked_channels", []))
+                | owner
+                | mod
+            )
+            .exclude(own_messages)
+        )
         channel_rows = list(
             unread(channels, key, "channel_id", mentioned).values(
                 "id",

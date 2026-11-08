@@ -14,6 +14,7 @@ class Action(StrEnum):
     INVITE = "invite"
     MODERATE = "moderate"
     SET_MODERATOR = "set_moderator"
+    CREATE_CHANNEL = "create_channel"
     MANAGE = "manage"
     TRANSFER = "transfer"
     DELETE = "delete"
@@ -21,8 +22,8 @@ class Action(StrEnum):
 
 ROLE_ACTIONS = {
     "visitor": {Action.JOIN},
-    "member": {Action.LEAVE},
-    "moderator": {Action.LEAVE, Action.INVITE, Action.MODERATE},
+    "member": {Action.LEAVE, Action.CREATE_CHANNEL},
+    "moderator": {Action.LEAVE, Action.INVITE, Action.MODERATE, Action.CREATE_CHANNEL},
     "owner": set(Action),
 }
 

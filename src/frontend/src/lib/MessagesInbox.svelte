@@ -23,6 +23,7 @@
 		error = '',
 		onselect,
 		onback,
+		backLabel = 'Communities',
 		onnew,
 		onnewgroup,
 		theme = 'light',
@@ -38,6 +39,7 @@
 		error?: string;
 		onselect: (conversation: DirectConversation | null) => void;
 		onback: () => void;
+		backLabel?: string;
 		onnew: () => void;
 		onnewgroup: () => void;
 		theme?: 'light' | 'dark';
@@ -188,7 +190,7 @@
 				</button>
 			</h1>
 		</div>
-		<div class="header-actions">
+			<div class="header-actions">
 			<button
 				class="theme-toggle"
 				aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -198,7 +200,7 @@
 					>{theme === 'dark' ? 'Light' : 'Dark'}</span
 				>
 			</button><button class="back-button" onclick={onback}
-				><ArrowLeft size={16} /> Communities</button
+				><ArrowLeft size={16} /><span>Back to {backLabel}</span></button
 			>
 		</div>
 	</header>
@@ -607,6 +609,12 @@
 		color: var(--ink);
 		font-size: 12px;
 		min-height: 40px;
+	}
+	.back-button span {
+		max-width: min(42vw, 220px);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.inbox-layout {
 		display: grid;

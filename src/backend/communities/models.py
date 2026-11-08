@@ -66,6 +66,7 @@ class Channel(models.Model):
     name = models.CharField(max_length=50)
     position = models.PositiveSmallIntegerField(default=0)
     private = models.BooleanField(default=False)
+    password_hash = models.CharField(max_length=128, blank=True)
     read_only = models.BooleanField(default=False)
     slowmode_seconds = models.PositiveIntegerField(default=0)
     topic = models.CharField(max_length=256, blank=True)
@@ -367,3 +368,13 @@ class RoomMemberState(models.Model):
 
     def __str__(self) -> str:
         return f"room preferences {self.pk}"
+
+
+class Presence(models.Model):
+    """Last visible activity for one account or session-backed guest."""
+
+    actor = models.CharField(max_length=128, unique=True)
+    last_seen = models.DateTimeField(auto_now=True, db_index=True)
+
+    def __str__(self) -> str:
+        return f"presence for {self.actor}"

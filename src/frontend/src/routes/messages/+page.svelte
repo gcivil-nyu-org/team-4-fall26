@@ -34,8 +34,19 @@
 	let error = $state('');
 	let theme = $state<'light' | 'dark'>('light');
 	let headerHeight = $state(76);
+	let returnTo = $state('/communities');
+	let returnLabel = $state('Communities');
 	const problem = (cause: unknown) =>
 		cause instanceof Error ? cause.message : 'Something went wrong.';
+	function messagesPath(conversationId?: number) {
+		const params = new URLSearchParams();
+		if (conversationId) params.set('dm', String(conversationId));
+		if (returnTo !== resolve('/communities')) {
+			params.set('returnTo', returnTo);
+			params.set('returnLabel', returnLabel);
+		}
+		return params.size ? resolve(`/messages?${params.toString()}`) : resolve('/messages');
+	}
 
 	async function refresh() {
 		try {
@@ -73,8 +84,7 @@
 	function choose(conversation: DirectConversation | null) {
 		selected = conversation;
 		composing = false;
-		if (conversation) replaceState(resolve(`/messages?dm=${conversation.id}`), {});
-		else replaceState(resolve('/messages'), {});
+		replaceState(messagesPath(conversation?.id), {});
 	}
 	async function newConversation(kind: 'direct' | 'group') {
 		composeKind = kind;
@@ -84,7 +94,7 @@
 		groupName = '';
 		groupPeople = [];
 		peopleStatus = '';
-		replaceState(resolve('/messages'), {});
+		replaceState(messagesPath(), {});
 		await tick();
 		recipientInput.focus();
 	}
@@ -163,6 +173,16 @@
 					? 'dark'
 					: 'light';
 		let current = true;
+		const initialUrl = new URL(location.href);
+		const requestedReturn = initialUrl.searchParams.get('returnTo');
+		if (requestedReturn) {
+			const candidate = new URL(requestedReturn, location.origin);
+			const communitiesPath = new URL(resolve('/communities'), location.origin).pathname;
+			if (candidate.origin === location.origin && candidate.pathname === communitiesPath) {
+				returnTo = candidate.pathname + candidate.search + candidate.hash;
+				returnLabel = (initialUrl.searchParams.get('returnLabel') || 'Community').slice(0, 80);
+			}
+		}
 		async function initialize() {
 			try {
 				const access = await communityRequest<{ guest_preview: boolean }>('/communities/access');
@@ -285,10 +305,11 @@
 		{loading}
 		{error}
 		{theme}
+		backLabel={returnLabel}
 		ontheme={toggleTheme}
 		onconversationaction={conversationAction}
 		onselect={choose}
-		onback={() => void goto(resolve('/communities'))}
+		onback={() => void goto(returnTo)}
 		onnew={() => void newConversation('direct')}
 		onnewgroup={() => void newConversation('group')}
 	/>

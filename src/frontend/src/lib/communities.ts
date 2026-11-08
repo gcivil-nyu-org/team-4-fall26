@@ -18,6 +18,8 @@ export type Channel = {
 	name: string;
 	position: number;
 	private?: boolean;
+	password_protected?: boolean;
+	locked?: boolean;
 	read_only?: boolean;
 	slowmode_seconds?: number;
 	topic?: string;
@@ -46,6 +48,7 @@ export type Member = {
 	role: 'member' | 'moderator';
 	joined_at: string;
 };
+export type MemberPresence = { online: boolean; last_seen: string | null };
 export type GuestMember = {
 	id: number;
 	display_name: string;

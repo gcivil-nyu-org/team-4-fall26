@@ -5,7 +5,7 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework.response import Response
 
-from .dm_views import person_key
+from .dm_views import person_key, visible_conversations
 from .message_views import authenticated, author_name
 from .models import DirectMessage, GuestMembership, Membership, Message, RoomMemberState
 from .views import CommunityView, guest_id
@@ -77,7 +77,7 @@ class Notifications(CommunityView):
             )[:30]
         )
         private = DirectMessage.objects.filter(
-            Q(conversation__first_key=key) | Q(conversation__second_key=key)
+            conversation_id__in=visible_conversations(key).values("pk")
         ).exclude(sender_key=key)
         dm_rows = list(
             unread(private, key, "conversation_id", direct_mention).values(

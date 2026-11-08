@@ -181,6 +181,12 @@ class Reaction(models.Model):
 
 
 class DirectConversation(models.Model):
+    class Kind(models.TextChoices):
+        DIRECT = "direct"
+        GROUP = "group"
+
+    kind = models.CharField(max_length=6, choices=Kind.choices, default=Kind.DIRECT)
+    name = models.CharField(max_length=100, blank=True)
     pair_key = models.CharField(max_length=64, unique=True)
     first_key = models.CharField(max_length=128)
     second_key = models.CharField(max_length=128)
@@ -190,6 +196,20 @@ class DirectConversation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(kind="direct", name="")
+                    & ~models.Q(first_key="")
+                    & ~models.Q(second_key="")
+                    | models.Q(
+                        kind="group", first_key="", second_key="", first_name="", second_name=""
+                    )
+                    & ~models.Q(name="")
+                ),
+                name="conversation_kind_fields",
+            ),
+        ]
         indexes = [
             models.Index(fields=["first_key", "-updated_at"], name="dm_first_recent"),
             models.Index(fields=["second_key", "-updated_at"], name="dm_second_recent"),
@@ -197,6 +217,45 @@ class DirectConversation(models.Model):
 
     def __str__(self) -> str:
         return f"Direct conversation {self.pk}"
+
+
+class ConversationParticipant(models.Model):
+    conversation = models.ForeignKey(
+        DirectConversation, related_name="participants", on_delete=models.CASCADE
+    )
+    actor = models.CharField(max_length=128)
+    name = models.CharField(max_length=150)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["conversation", "actor"], name="conversation_actor_once"
+            )
+        ]
+        indexes = [models.Index(fields=["actor", "conversation"], name="participant_conversations")]
+
+    def __str__(self) -> str:
+        return f"{self.name}"
+
+
+class ConversationPreference(models.Model):
+    conversation = models.ForeignKey(
+        DirectConversation, related_name="preferences", on_delete=models.CASCADE
+    )
+    actor = models.CharField(max_length=128)
+    pinned = models.BooleanField(default=False)
+    deleted = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["conversation", "actor"], name="conversation_preference_once"
+            )
+        ]
+        indexes = [models.Index(fields=["actor", "deleted", "pinned"])]
+
+    def __str__(self) -> str:
+        return f"{self.actor}: {self.conversation_id}"
 
 
 class DirectMessage(ChatMessage):

@@ -60,7 +60,16 @@ export type Invite = {
 	uses: number;
 	revoked: boolean;
 };
-export type DirectConversation = { id: number; other_name: string; updated_at: string };
+export type DirectConversation = {
+	id: number;
+	other_name: string;
+	updated_at: string;
+	kind?: 'direct' | 'group';
+	member_count?: number;
+	member_names?: string[];
+	unread_count?: number;
+	pinned?: boolean;
+};
 export type DirectMessage = {
 	reactions?: Message['reactions'];
 	pinned_at?: string | null;

@@ -1,8 +1,9 @@
 from django.urls import path
 
-from . import dm_views, message_views, notifications, room_views, views
+from . import demo_views, dm_views, message_views, notifications, room_views, views
 
 urlpatterns = [
+    path("chat/demo", demo_views.MessageDemo.as_view()),
     path("chat/people", dm_views.PeopleSearch.as_view()),
     path("communities/access", views.CommunityAccess.as_view()),
     path("dms/<int:conversation_id>/messages/search", dm_views.DirectSearch.as_view()),
@@ -34,6 +35,7 @@ urlpatterns = [
         room_views.AlertPreference.as_view(),
     ),
     path("dms/<int:conversation_id>/messages/snapshot", room_views.MessageSnapshot.as_view()),
+    path("dms/<int:conversation_id>/preferences", dm_views.DirectConversationPreference.as_view()),
     path(
         "communities/<int:community_id>/channels/<int:channel_id>/messages/snapshot",
         room_views.MessageSnapshot.as_view(),

@@ -1,30 +1,28 @@
 <script lang="ts">
 	import SiteHeader from '$lib/SiteHeader.svelte';
+	import CommunityDiscovery from '$lib/CommunityDiscovery.svelte';
 	import MoreHorizontal from '@lucide/svelte/icons/ellipsis';
-	import SquarePen from '@lucide/svelte/icons/square-pen';
 	import { chatControls } from '$lib/chatControls';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { base, resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
 	import * as Card from '$lib/components/ui/card';
 	import X from '@lucide/svelte/icons/x';
 	import Moon from '@lucide/svelte/icons/moon';
 	import Sun from '@lucide/svelte/icons/sun';
-	import Compass from '@lucide/svelte/icons/compass';
-	import Plus from '@lucide/svelte/icons/plus';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Hash from '@lucide/svelte/icons/hash';
 	import MessageCircle from '@lucide/svelte/icons/message-circle';
 	import Link2 from '@lucide/svelte/icons/link-2';
-	import PanelLeft from '@lucide/svelte/icons/panel-left';
 	import Users from '@lucide/svelte/icons/users';
 	import '$lib/chat-theme.css';
 	import Autocomplete from '$lib/Autocomplete.svelte';
 	import { channelLink } from '$lib/chatLinks';
 	import ChatInbox from '$lib/ChatInbox.svelte';
 	import ChannelChat from '$lib/ChannelChat.svelte';
-	import DirectMessages from '$lib/DirectMessages.svelte';
 	import {
 		communityRequest,
 		type Channel,
@@ -36,14 +34,6 @@
 	} from '$lib/communities';
 	import { session } from '$lib/session.svelte';
 
-	type Person = {
-		name: string;
-		community: string;
-		community_id: number;
-		target: { user_id: string } | { guest_member_id: number };
-	};
-	let composing = $state(false);
-	let recipientQuery = $state('');
 	let preview = $state<{
 		name: string;
 		member_count: number;
@@ -58,56 +48,9 @@
 	let menuLeft = $state(0),
 		menuTop = $state(0);
 	let headerHeight = $state(76);
-	let people = $state<Person[]>([]);
-	let peopleStatus = $state('');
-	$effect(() => {
-		const term = (composing ? recipientQuery : query).trim();
-		people = [];
-		peopleStatus = '';
-		if (
-			term.length < 2 ||
-			(!composing && (selected || selectedDM)) ||
-			(!guestPreview && session.status !== 'signed-in')
-		)
-			return;
-		let current = true;
-		peopleStatus = 'Searching…';
-		const timer = setTimeout(async () => {
-			try {
-				const result = await communityRequest<{ items: Person[] }>(
-					`/chat/people?q=${encodeURIComponent(term)}`
-				);
-				if (current) {
-					people = result.items;
-					peopleStatus = result.items.length ? '' : 'No matching people in your communities.';
-				}
-			} catch (cause) {
-				if (current) peopleStatus = message(cause);
-			}
-		}, 180);
-		return () => {
-			current = false;
-			clearTimeout(timer);
-		};
-	});
-	async function messagePerson(person: Person) {
-		try {
-			const chat = await communityRequest<DirectConversation>(
-				`/communities/${person.community_id}/dms`,
-				'POST',
-				person.target
-			);
-			query = '';
-			composing = false;
-			openDM(chat);
-		} catch (cause) {
-			peopleStatus = message(cause);
-		}
-	}
+	let contentElement = $state<HTMLDivElement>();
 	let communities = $state<Community[]>([]);
 	let selected = $state<Community | null>(null);
-	let directConversations = $state<DirectConversation[]>([]);
-	let selectedDM = $state<DirectConversation | null>(null);
 	let members = $state<Member[]>([]);
 	let guestMembers = $state<GuestMember[]>([]);
 	let memberOffset = 0;
@@ -184,8 +127,7 @@
 	let theme = $state<'light' | 'dark'>('light');
 	let channelsOpen = $state(false);
 	let joining = $state<number | null>(null);
-	let navOpen = $state(false),
-		membersOpen = $state(false);
+	let membersOpen = $state(false);
 	function toggleTheme() {
 		theme = theme === 'light' ? 'dark' : 'light';
 		localStorage.setItem('studyspot.chat.theme', theme);
@@ -277,7 +219,6 @@
 	}
 
 	async function choose(id: number, channelId?: number | null) {
-		navOpen = false;
 		channelsOpen = false;
 		membersOpen = false;
 		const initial = new URL(location.href);
@@ -289,7 +230,6 @@
 		error = '';
 		try {
 			selected = await communityRequest<Community>(`/communities/${id}`);
-			selectedDM = null;
 			channelCreateOpen = false;
 			channelMenuOpen = null;
 			editingChannelId = null;
@@ -325,35 +265,16 @@
 		}
 	}
 
-	async function loadDMs(): Promise<DirectConversation[]> {
-		try {
-			directConversations = (await communityRequest<{ items: DirectConversation[] }>('/dms')).items;
-			return directConversations;
-		} catch (cause) {
-			error = message(cause);
-			return [];
-		}
+	function openInbox() {
+		void goto(resolve('/messages'));
 	}
-
 	function openDM(conversation: DirectConversation) {
-		navOpen = false;
-		channelsOpen = false;
-		selectedDM = conversation;
-		selected = null;
-		creating = false;
-		history.replaceState(
-			null,
-			'',
-			`?dm=${conversation.id}${Number(new URL(location.href).searchParams.get('dm')) === conversation.id ? location.hash : ''}`
-		);
-		void loadDMs();
+		void goto(resolve(`/messages?dm=${conversation.id}`));
 	}
 
 	function goHome() {
-		navOpen = false;
 		channelsOpen = false;
 		selected = null;
-		selectedDM = null;
 		creating = false;
 		history.replaceState(null, '', resolve('/communities'));
 	}
@@ -413,7 +334,6 @@
 	}
 
 	function selectChannel(channelId: number) {
-		navOpen = false;
 		channelsOpen = false;
 		activeChannelId = channelId;
 		channelMenuOpen = null;
@@ -586,19 +506,12 @@
 			return;
 		}
 		if (
-			(navOpen || channelsOpen) &&
+			channelsOpen &&
 			channelMenuOpen === null &&
 			!channelCreateOpen &&
 			editingChannelId === null
 		) {
-			document
-				.querySelector<HTMLButtonElement>(
-					channelsOpen
-						? '[aria-controls="channel-navigation"]'
-						: '[aria-controls="community-navigation"]'
-				)
-				?.focus();
-			navOpen = false;
+			document.querySelector<HTMLButtonElement>('[aria-controls="channel-navigation"]')?.focus();
 			channelsOpen = false;
 			return;
 		}
@@ -756,7 +669,6 @@
 			await loadSettings();
 		}
 		if (option === 'create') {
-			navOpen = false;
 			channelsOpen = true;
 			await openChannelCreate();
 		}
@@ -833,26 +745,16 @@
 					);
 					preview = { ...details, token, channel: channelId };
 				} else if (dmId) {
-					openDM(await communityRequest<DirectConversation>(`/dms/${dmId}`));
+					void goto(resolve(`/messages?dm=${dmId}${url.hash}`));
 					return;
 				} else if (id) {
 					await choose(id, channelId);
 				}
-				await loadDMs();
 			} catch (e) {
 				error = message(e);
 			}
 		}
 		void enter().catch((e) => (accessError = message(e)));
-		const refreshDMs = () => {
-			if (!document.hidden && (guestPreview || session.status === 'signed-in')) void loadDMs();
-		};
-		document.addEventListener('visibilitychange', refreshDMs);
-		const refreshTimer = window.setInterval(refreshDMs, 8000);
-		return () => {
-			clearInterval(refreshTimer);
-			document.removeEventListener('visibilitychange', refreshDMs);
-		};
 	});
 </script>
 
@@ -934,28 +836,6 @@
 					>{/if}
 			{/if}
 		</div>
-		{#if composing}
-			<dialog
-				class="confirm-dialog flow-dialog"
-				aria-labelledby="compose-title"
-				{@attach (node) => node.showModal()}
-				onclose={() => (composing = false)}
-			>
-				<h2 id="compose-title">New message</h2>
-				<label for="recipient-search">Find someone in your communities</label>
-				<Input
-					id="recipient-search"
-					bind:value={recipientQuery}
-					maxlength={100}
-					placeholder="Type at least two letters"
-				/>
-				<p role="status">{peopleStatus}</p>
-				{#each people as person (person.community_id + JSON.stringify(person.target))}
-					<button class={chatControls.row} onclick={() => void messagePerson(person)}
-						>{person.name} · {person.community}</button
-					>{/each}
-				<button class={chatControls.ghost} onclick={() => (composing = false)}>Cancel</button>
-			</dialog>{/if}
 		{#snippet generatedInvite()}{#if inviteLink}
 				<Input
 					readonly
@@ -1028,152 +908,21 @@
 				>
 			</dialog>{/if}
 		<main
-			class:in-room={!!selected || !!selectedDM}
-			class:nav-open={navOpen}
+			class:discovery-mode={!selected && !creating}
+			class:in-room={!!selected}
 			class:channels-open={channelsOpen}
 			class:members-open={membersOpen}
 		>
-			<!-- ── Left sidebar ── -->
-			<aside id="community-navigation" class="sidebar" aria-label="Communities and direct messages">
-				<div class="sidebar-top">
-					<button
-						class="home-link {chatControls.row}"
-						onclick={goHome}
-						title="Browse communities"
-						aria-label="Browse communities"><Compass size={23} /><span>Communities</span></button
-					>
-					<div class="sidebar-search-row">
-						<Input
-							id="community-search"
-							bind:value={query}
-							maxlength={100}
-							aria-label="Search people and communities"
-							placeholder="Search people or communities…"
-						/>
-					</div>
-					<div class="sidebar-tabs">
-						<button
-							class={chatControls.ghost}
-							aria-pressed={!viewMine}
-							class:chosen={!viewMine}
-							onclick={() => (viewMine = false)}>All</button
-						><button
-							class={chatControls.ghost}
-							aria-pressed={viewMine}
-							class:chosen={viewMine}
-							onclick={() => (viewMine = true)}>Mine</button
-						>
-					</div>
-				</div>
-
-				<div class="sidebar-scroll">
-					{#if loading}<p class="sidebar-muted">Loading…</p>{/if}
-
-					{#if query.trim().length >= 2 && !selected && !selectedDM}
-						<div class="sidebar-section-label">People in your communities</div>
-						{#if peopleStatus}<p role="status" class="sidebar-muted">{peopleStatus}</p>{/if}
-						<div class="sidebar-list">
-							{#each people as person (person.community_id + JSON.stringify(person.target))}
-								<button
-									class="sidebar-item {chatControls.row}"
-									aria-label={'Message ' + person.name}
-									onclick={() => void messagePerson(person)}
-								>
-									<span class="sidebar-item-avatar" style="background:{avatarColor(person.name)}"
-										>{initials(person.name)}</span
-									>
-									<span class="sidebar-item-text"
-										><strong class="sidebar-item-name">{person.name}</strong><small
-											class="sidebar-item-meta">{person.community}</small
-										></span
-									>
-								</button>{/each}
-						</div>{/if}
-					<div class="sidebar-section-label">Communities</div>
-					<div class="sidebar-list">
-						{#each communities as community (community.id)}
-							<button
-								class="sidebar-item {chatControls.row}"
-								title={community.name}
-								oncontextmenu={(event) => openCommunityMenu(event, community)}
-								aria-label={community.name}
-								class:active={selected?.id === community.id}
-								aria-current={selected?.id === community.id ? 'page' : undefined}
-								onclick={() => void choose(community.id)}
-							>
-								<div class="sidebar-item-icon" style="background:{avatarColor(community.name)}">
-									{initials(community.name)}
-								</div>
-								<div class="sidebar-item-text">
-									<span class="sidebar-item-name">{community.name}</span>
-									<span class="sidebar-item-meta"
-										>{community.member_count}
-										{community.member_count === 1 ? 'member' : 'members'}</span
-									>
-								</div>
-							</button>
-						{/each}
-					</div>
-					{#if hasMore}
-						<button
-							class="sidebar-load-more {chatControls.ghost}"
-							onclick={() => void browse(query, true)}>Show more</button
-						>
-					{/if}
-
-					{#if directConversations.length}
-						<div class="sidebar-section-label">Direct Messages</div>
-						<div class="sidebar-list">
-							{#each directConversations as conversation (conversation.id)}
-								<button
-									class="sidebar-item {chatControls.row}"
-									title={conversation.other_name}
-									aria-label={conversation.other_name}
-									class:active={selectedDM?.id === conversation.id}
-									aria-current={selectedDM?.id === conversation.id ? 'page' : undefined}
-									onclick={() => openDM(conversation)}
-								>
-									<div
-										class="sidebar-item-avatar"
-										style="background:{avatarColor(conversation.other_name)}"
-									>
-										{initials(conversation.other_name)}
-									</div>
-									<div class="sidebar-item-text">
-										<span class="sidebar-item-name">{conversation.other_name}</span>
-										<span class="sidebar-item-meta">Direct message</span>
-									</div>
-								</button>
-							{/each}
-						</div>
-					{/if}
-				</div>
-				<div class="sidebar-bottom">
-					<button
-						class="create-btn {chatControls.primary}"
-						title="Create community"
-						aria-label="Create community"
-						onclick={showCreate}><Plus size={21} /><span>New community</span></button
-					>
-				</div>
-			</aside>
-
 			<!-- ── Main content ── -->
-			<div class="content" tabindex="-1" class:workspace-mode={!!selected || !!selectedDM}>
+			<div
+				class="content"
+				bind:this={contentElement}
+				tabindex="-1"
+				class:workspace-mode={!!selected}
+			>
 				<header class="room-bar">
-					<button
-						class="chat-icon mobile-nav {chatControls.icon}"
-						aria-label="Toggle navigation"
-						title="Communities and direct messages"
-						aria-controls="community-navigation"
-						aria-expanded={navOpen}
-						onclick={async () => {
-							channelsOpen = false;
-							membersOpen = false;
-							navOpen = !navOpen;
-							await tick();
-							if (navOpen) document.getElementById('community-search')?.focus();
-						}}><PanelLeft size={18} /></button
+					<button class={chatControls.ghost} onclick={goHome}
+						><ArrowLeft size={17} /> Back to communities</button
 					>
 					{#if selected}<button
 							class="chat-icon mobile-nav {chatControls.icon}"
@@ -1182,7 +931,6 @@
 							aria-controls="channel-navigation"
 							aria-expanded={channelsOpen}
 							onclick={async () => {
-								navOpen = false;
 								membersOpen = false;
 								channelsOpen = !channelsOpen;
 								await tick();
@@ -1190,12 +938,8 @@
 									document.querySelector<HTMLElement>('#channel-navigation button')?.focus();
 							}}><Hash size={18} /></button
 						>{/if}
-					<button
-						class={chatControls.ghost}
-						onclick={() => {
-							recipientQuery = '';
-							composing = true;
-						}}><SquarePen size={16} /> New message</button
+					<button class={chatControls.ghost} onclick={openInbox}
+						><MessageCircle size={17} /> Messages</button
 					>
 					<div class="app-controls">
 						{#if selected}<button
@@ -1205,7 +949,6 @@
 								aria-expanded={membersOpen}
 								onclick={() => {
 									channelsOpen = false;
-									navOpen = false;
 									membersOpen = !membersOpen;
 								}}><Users size={18} /></button
 							>{/if}<ChatInbox /><button
@@ -1271,8 +1014,6 @@
 							</form>
 						</div>
 					</div>
-				{:else if selectedDM}
-					{#key selectedDM.id}<DirectMessages conversation={selectedDM} />{/key}
 				{:else if selected}
 					<!-- Community workspace -->
 					<div class="workspace">
@@ -1953,87 +1694,31 @@
 						</aside>
 					</div>
 				{:else}
-					<!-- Landing page -->
-					<div class="landing">
-						<div class="landing-hero">
-							<p class="landing-eyebrow">StudySpot Communities</p>
-							<h1>Find your people.<br />Make progress<br />together.</h1>
-							<p class="landing-lead">
-								Join a public study group, pick a channel, and start talking. Or create a space for
-								the course you're working through.
-							</p>
-							<div class="landing-cta">
-								<button class="btn-primary {chatControls.primary}" onclick={showCreate}
-									>Create a community</button
-								>
-								<button
-									class="landing-cta-secondary {chatControls.outline}"
-									onclick={async () => {
-										navOpen = true;
-										await tick();
-										document.getElementById('community-search')?.focus();
-									}}
-								>
-									Browse communities
-								</button>
-							</div>
-						</div>
-
-						<div class="landing-features">
-							<Card.Root class="feature-card">
-								<span class="feature-icon" aria-hidden="true"><Hash size={20} /></span>
-								<strong>Organized channels</strong>
-								<p>Keep homework, exam prep, and casual chat in separate channels.</p>
-							</Card.Root>
-							<Card.Root class="feature-card">
-								<span class="feature-icon" aria-hidden="true"><MessageCircle size={20} /></span>
-								<strong>Direct messages</strong>
-								<p>Message any member privately, outside of group channels.</p>
-							</Card.Root>
-							<Card.Root class="feature-card">
-								<span class="feature-icon" aria-hidden="true"><Link2 size={20} /></span>
-								<strong>Invite links</strong>
-								<p>Share a link to bring classmates into your public community.</p>
-							</Card.Root>
-						</div>
-
-						<h2 class="explore-heading">Explore communities</h2>
-						<div class="community-grid">
-							{#each communities.slice(0, 6) as community (community.id)}
-								<button
-									class="community-card {chatControls.row}"
-									disabled={joining !== null}
-									aria-label={(community.role === 'visitor' ? 'Join ' : 'Open ') + community.name}
-									oncontextmenu={(e) => openCommunityMenu(e, community)}
-									onclick={() => void enterFromExplore(community)}
-								>
-									<div class="community-card-icon" style="background:{avatarColor(community.name)}">
-										{initials(community.name)}
-									</div>
-									<div class="community-card-info">
-										<strong>{community.name}</strong>
-										<span
-											>{[community.school, community.course].filter(Boolean).join(' · ') ||
-												'Open study community'}</span
-										>
-										<small
-											>{community.member_count}
-											{community.member_count === 1 ? 'member' : 'members'} · Public</small
-										>
-										<b class="card-action"
-											>{joining === community.id
-												? 'Opening…'
-												: community.role === 'visitor'
-													? 'Join community →'
-													: 'Open community →'}</b
-										>
-									</div>
-								</button>
-							{:else}
-								<p class="muted">No communities yet. Start one for your class.</p>
-							{/each}
-						</div>
-					</div>
+					<CommunityDiscovery
+						{communities}
+						bind:query
+						bind:mine={viewMine}
+						{loading}
+						{hasMore}
+						{joining}
+						{error}
+						onopen={(community) => void choose(community.id)}
+						onjoin={enterFromExplore}
+						oncreate={showCreate}
+						onmessages={openInbox}
+						onbacktotop={(event) => {
+							contentElement?.scrollTo({
+								top: 0,
+								behavior:
+									event.detail > 0 && !matchMedia('(prefers-reduced-motion: reduce)').matches
+										? 'smooth'
+										: 'instant'
+							});
+							if (event.detail === 0)
+								document.getElementById('discovery-title')?.focus({ preventScroll: true });
+						}}
+						onmore={() => void browse(query, true)}
+					/>
 				{/if}
 			</div>
 		</main>
@@ -2117,228 +1802,7 @@
 		height: 100dvh;
 		min-height: 620px;
 		display: grid;
-		grid-template-columns: 248px minmax(0, 1fr);
-	}
-
-	/* ── Sidebar ── */
-	.sidebar {
-		background: var(--sb-bg);
-		color: var(--sb-text);
-		border-right: 1px solid var(--sb-border);
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		min-height: 0;
-	}
-	.sidebar-top {
-		padding: 14px 10px 8px;
-		flex-shrink: 0;
-	}
-	.home-link {
-		display: block;
-		width: 100%;
-		text-align: left;
-		border: 0;
-		background: transparent;
-		color: var(--sb-text-act);
-		padding: 0 4px 10px;
-		font: inherit;
-		font-size: 15px;
-		font-weight: 700;
-		letter-spacing: -0.02em;
-		cursor: pointer;
-	}
-	.sidebar-search-row {
-		margin-bottom: 8px;
-	}
-	.sidebar-search-row :global(input) {
-		width: 100%;
-		background: var(--panel);
-		border: 1px solid var(--sb-border);
-		border-radius: 8px;
-		color: var(--sb-text);
-		padding: 7px 10px;
-		font: inherit;
-		font-size: 13px;
-		box-sizing: border-box;
-		transition: border-color 0.15s;
-	}
-	.sidebar-search-row :global(input::placeholder) {
-		color: var(--sb-muted);
-	}
-	.sidebar-search-row :global(input:focus) {
-		outline: none;
-		border-color: var(--accent);
-		box-shadow: 0 0 0 2px var(--selected);
-	}
-	.sidebar-tabs {
-		display: flex;
-		gap: 2px;
-		background: rgba(0, 0, 0, 0.06);
-		border-radius: 8px;
-		padding: 3px;
-	}
-	.sidebar-tabs button {
-		flex: 1;
-		padding: 5px 8px;
-		min-height: 28px;
-		border: 0;
-		border-radius: 6px;
-		background: transparent;
-		color: var(--sb-muted);
-		font: inherit;
-		font-size: 12px;
-		font-weight: 600;
-		cursor: pointer;
-		transition:
-			background 0.12s,
-			color 0.12s;
-	}
-	.sidebar-tabs button.chosen {
-		color: var(--accent-text);
-		background: var(--panel);
-	}
-	.sidebar-tabs button:hover:not(.chosen) {
-		color: var(--sb-text);
-	}
-
-	.sidebar-scroll {
-		flex: 1;
-		min-height: 0;
-		overflow-y: auto;
-	}
-	.sidebar-section-label {
-		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.09em;
-		color: var(--sb-muted);
-		font-weight: 700;
-		padding: 12px 14px 4px;
-		flex-shrink: 0;
-	}
-	.sidebar-list {
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
-		overflow-y: auto;
-		flex-shrink: 0;
-
-		padding: 0 6px;
-	}
-	.sidebar-item {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		text-align: left;
-		border: 0;
-		border-radius: 8px;
-		background: transparent;
-		color: var(--sb-text);
-		padding: 7px 8px;
-		font: inherit;
-		cursor: pointer;
-		transition:
-			background 0.1s,
-			color 0.1s;
-		border-left: 2px solid transparent;
-	}
-	.sidebar-item:hover {
-		background: var(--sb-hover);
-	}
-	.sidebar-item.active {
-		background: var(--sb-active);
-		color: var(--sb-text-act);
-	}
-	.sidebar-item-icon {
-		width: 28px;
-		height: 28px;
-		border-radius: 8px;
-		display: grid;
-		place-items: center;
-		color: white;
-		font-size: 11px;
-		font-weight: 700;
-		flex-shrink: 0;
-		user-select: none;
-	}
-	.sidebar-item-avatar {
-		width: 28px;
-		height: 28px;
-		border-radius: 50%;
-		display: grid;
-		place-items: center;
-		color: white;
-		font-size: 11px;
-		font-weight: 700;
-		flex-shrink: 0;
-		user-select: none;
-	}
-	.sidebar-item-text {
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
-	}
-	.sidebar-item-name {
-		font-size: 13px;
-		font-weight: 600;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		color: var(--sb-text);
-	}
-	.sidebar-item.active .sidebar-item-name {
-		color: var(--sb-text-act);
-	}
-	.sidebar-item-meta {
-		font-size: 11px;
-		color: var(--sb-muted);
-	}
-
-	.sidebar-load-more {
-		font-size: 12px;
-		padding: 4px 14px;
-		border: 0;
-		background: transparent;
-		color: var(--sb-muted);
-		cursor: pointer;
-		border-radius: 6px;
-		font: inherit;
-		flex-shrink: 0;
-	}
-	.sidebar-load-more:hover {
-		color: var(--sb-text);
-	}
-
-	.sidebar-muted {
-		font-size: 12px;
-		color: var(--sb-muted);
-		padding: 4px 14px;
-		margin: 0;
-	}
-
-	.sidebar-bottom {
-		margin-top: auto;
-		padding: 10px 10px 14px;
-		flex-shrink: 0;
-	}
-	.create-btn {
-		display: block;
-		width: 100%;
-		padding: 9px 14px;
-		border: 0;
-		border-radius: 8px;
-		background: var(--control-primary);
-		color: white;
-		font: inherit;
-		font-size: 13px;
-		font-weight: 700;
-		cursor: pointer;
-		transition: background 0.12s;
-		text-align: center;
-	}
-	.create-btn:hover {
-		background: var(--control-primary-hover);
+		grid-template-columns: minmax(0, 1fr);
 	}
 
 	/* ── Content area ── */
@@ -3248,169 +2712,6 @@
 		margin: 0 0 20px;
 	}
 
-	/* Communities landing page */
-	.landing {
-		padding: 60px 56px 80px;
-		max-width: 1000px;
-	}
-	.landing-eyebrow {
-		font-size: 11px;
-		font-weight: 800;
-		text-transform: uppercase;
-		letter-spacing: 0.1em;
-		color: var(--accent-text);
-		margin: 0 0 16px;
-	}
-	.landing h1 {
-		font-size: clamp(38px, 5vw, 64px);
-		line-height: 1.02;
-		letter-spacing: -0.04em;
-		margin: 0 0 20px;
-		max-width: 680px;
-		color: var(--ink);
-		font-weight: 800;
-	}
-	.landing-lead {
-		font-size: 17px;
-		color: var(--muted);
-		max-width: 560px;
-		line-height: 1.65;
-		margin: 0 0 32px;
-	}
-	.landing-cta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 10px;
-		margin-bottom: 56px;
-	}
-	.landing-cta button {
-		min-height: 44px;
-		padding-inline: 22px;
-		font-size: 15px;
-	}
-	.landing-cta-secondary {
-		background: var(--panel);
-		border-color: var(--line);
-		color: var(--ink);
-	}
-	.landing-cta-secondary:hover {
-		background: var(--well);
-	}
-
-	.landing-features {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
-		gap: 16px;
-		margin-bottom: 56px;
-	}
-	.landing :global(.feature-card) {
-		padding: 22px;
-		border: 1px solid var(--line);
-		border-radius: 12px;
-		gap: 8px;
-		background: var(--well);
-		transition: box-shadow 0.15s;
-	}
-	.landing :global(.feature-card):hover {
-		box-shadow:
-			0 0 0 1px rgba(0, 0, 0, 0.1),
-			0 4px 12px rgba(0, 0, 0, 0.06);
-	}
-	.feature-icon {
-		display: inline-grid;
-		place-items: center;
-		inline-size: 32px;
-		block-size: 32px;
-		background: var(--side);
-		border-radius: 8px;
-		margin-bottom: 4px;
-		color: var(--accent);
-	}
-	.landing :global(.feature-card strong) {
-		display: block;
-		font-size: 15px;
-		margin: 0;
-		color: var(--ink);
-	}
-	.landing :global(.feature-card p) {
-		margin: 0;
-		font-size: 13px;
-		color: var(--muted);
-		line-height: 1.55;
-	}
-
-	.explore-heading {
-		font-size: 20px;
-		font-weight: 700;
-		margin: 0 0 16px;
-		letter-spacing: -0.025em;
-		color: var(--ink);
-	}
-	.community-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
-		gap: 12px;
-	}
-	.community-card {
-		display: flex;
-		align-items: center;
-		gap: 14px;
-		text-align: left;
-		padding: 18px;
-		border: 1px solid var(--line);
-		border-radius: 4px;
-		background: var(--panel);
-		cursor: pointer;
-		transition:
-			border-color 0.15s,
-			box-shadow 0.15s;
-		font: inherit;
-	}
-	.community-card:hover {
-		border-color: var(--muted);
-		box-shadow:
-			0 0 0 1px rgba(0, 0, 0, 0.06),
-			0 4px 12px rgba(0, 0, 0, 0.06);
-	}
-	.community-card-icon {
-		width: 48px;
-		height: 48px;
-		border-radius: 8px;
-		display: grid;
-		place-items: center;
-		color: white;
-		font-size: 17px;
-		font-weight: 700;
-		flex-shrink: 0;
-		user-select: none;
-	}
-	.community-card-info {
-		min-width: 0;
-		display: grid;
-		gap: 3px;
-	}
-	.card-action {
-		color: var(--accent-text);
-		font-size: 13px;
-		margin-top: 5px;
-	}
-	.community-card-info strong {
-		font-size: 14px;
-		font-weight: 700;
-		color: var(--ink);
-	}
-	.community-card-info span {
-		font-size: 12px;
-		color: var(--muted);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.community-card-info small {
-		font-size: 11px;
-		color: var(--muted);
-	}
-
 	.muted {
 		color: var(--muted);
 		font-size: 13px;
@@ -3466,9 +2767,6 @@
 		.workspace {
 			grid-template-columns: 180px minmax(0, 1fr) 190px;
 		}
-		.landing {
-			padding: 40px 36px 60px;
-		}
 	}
 	@media (max-width: 1120px) {
 		.workspace {
@@ -3489,12 +2787,6 @@
 		.channel-rail {
 			border-right: 0;
 			border-bottom: 1px solid var(--sb-border);
-		}
-		.landing {
-			padding: 28px 22px 48px;
-		}
-		.community-grid {
-			grid-template-columns: 1fr;
 		}
 	}
 </style>

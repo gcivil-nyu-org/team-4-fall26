@@ -1702,6 +1702,8 @@
 						{hasMore}
 						{joining}
 						{error}
+						{theme}
+						ontheme={toggleTheme}
 						onopen={(community) => void choose(community.id)}
 						onjoin={enterFromExplore}
 						oncreate={showCreate}

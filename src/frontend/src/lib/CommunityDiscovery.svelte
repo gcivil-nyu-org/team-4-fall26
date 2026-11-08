@@ -6,6 +6,8 @@
 	import MessageCircle from '@lucide/svelte/icons/message-circle';
 	import Users from '@lucide/svelte/icons/users';
 	import X from '@lucide/svelte/icons/x';
+	import Moon from '@lucide/svelte/icons/moon';
+	import Sun from '@lucide/svelte/icons/sun';
 	import { tick } from 'svelte';
 	import type { Community } from './communities';
 
@@ -21,6 +23,8 @@
 		onjoin,
 		oncreate,
 		onmessages,
+		theme = 'light',
+		ontheme = () => {},
 		onmore,
 		onbacktotop
 	}: {
@@ -35,6 +39,8 @@
 		onjoin: (community: Community) => Promise<void>;
 		oncreate: () => void;
 		onmessages: (event: MouseEvent) => void;
+		theme?: 'light' | 'dark';
+		ontheme?: () => void;
 		onmore: () => void;
 		onbacktotop: (event: MouseEvent) => void;
 	} = $props();
@@ -71,6 +77,15 @@
 			<h1 id="discovery-title" tabindex="-1">Find your study people.</h1>
 		</div>
 		<div class="top-actions">
+			<button
+				class="quiet theme-toggle"
+				aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+				title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+				onclick={ontheme}
+				>{#if theme === 'light'}<Moon size={16} />{:else}<Sun size={16} />{/if}<span
+					>{theme === 'light' ? 'Dark mode' : 'Light mode'}</span
+				></button
+			>
 			<button class="quiet" onclick={onmessages}><MessageCircle size={17} /> Messages</button>
 			<button class="primary" onclick={oncreate}><Plus size={17} /> Create community</button>
 		</div>
@@ -553,6 +568,9 @@
 	@media (prefers-reduced-motion: no-preference) {
 		.community-card {
 			transition:
+				background-color 220ms ease,
+				border-color 220ms ease,
+				color 220ms ease,
 				transform 180ms var(--ease-out),
 				opacity 180ms var(--ease-out);
 		}
@@ -566,8 +584,19 @@
 		.quiet,
 		.card-action {
 			transition:
+				background-color 220ms ease,
+				border-color 220ms ease,
+				color 220ms ease,
 				transform 120ms var(--ease-out),
 				opacity 120ms ease;
+		}
+		.search-wrap,
+		.tabs button,
+		.community-preview {
+			transition:
+				background-color 220ms ease,
+				border-color 220ms ease,
+				color 220ms ease;
 		}
 		.primary:active:not(:focus-visible),
 		.quiet:active:not(:focus-visible),

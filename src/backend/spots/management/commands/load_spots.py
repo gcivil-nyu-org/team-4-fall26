@@ -177,5 +177,8 @@ class Command(BaseCommand):
             StudySpot.objects.filter(owner__isnull=True).delete()
             StudySpot.objects.bulk_create(spots, batch_size=BATCH_SIZE)
 
-        written = StudySpot.objects.count()
+        # `len(spots)` rather than a table count: the delete above leaves owned
+        # listings in place, and counting the table would fold them into a
+        # number that reports what this snapshot loaded.
+        written = len(spots)
         self.stdout.write(self.style.SUCCESS(f"loaded {written} spots from {dataset}"))

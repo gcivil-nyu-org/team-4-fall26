@@ -11,7 +11,14 @@ from typing import Any
 
 from rest_framework import serializers
 
-from .models import DEFAULT_LIMIT, MAX_FILTER_LENGTH, MAX_LIMIT, Borough, StudySpot
+from .models import (
+    DEFAULT_LIMIT,
+    LISTING_CATEGORIES,
+    MAX_FILTER_LENGTH,
+    MAX_LIMIT,
+    Borough,
+    StudySpot,
+)
 
 
 class StudySpotSerializer(serializers.ModelSerializer):
@@ -79,6 +86,10 @@ class ListingSerializer(serializers.ModelSerializer):
     """
 
     borough = BoroughField()
+    category = serializers.ChoiceField(
+        choices=LISTING_CATEGORIES,
+        error_messages={"invalid_choice": f"Must be one of: {', '.join(LISTING_CATEGORIES)}."},
+    )
 
     class Meta:
         model = StudySpot

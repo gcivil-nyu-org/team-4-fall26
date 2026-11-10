@@ -86,6 +86,7 @@ class TestCreating:
             {"subway_station": "Bleecker St"},
             {"latitude": 91},
             {"borough": "Hoboken"},
+            {"category": "coffee shop"},
             {"address": ""},
         ],
     )

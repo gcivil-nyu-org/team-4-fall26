@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import NotAuthenticated, PermissionDenied
 
 from .models import Community, Membership
 
@@ -72,5 +72,7 @@ def require(community: Community, user: object, action: Action) -> str:
         raise PermissionDenied("An active account is required.")
     role = role_for(community, user)
     if action not in ROLE_ACTIONS[role]:
+        if isinstance(user, GuestMember):
+            raise NotAuthenticated("Sign in with an active account to continue.")
         raise PermissionDenied("You cannot perform this action in this community.")
     return role

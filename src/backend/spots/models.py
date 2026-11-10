@@ -27,6 +27,12 @@ MAX_FILTER_LENGTH = 120
 
 #: The categories a business owner may give a listing they create.
 #:
+#: Only ``cafe``. The importer's other four values -- ``public_library``,
+#: ``academic_library``, ``special_library`` and ``university_building`` --
+#: name institutions and reach this table from city and university datasets.
+#: A business account that could choose one would present itself to students
+#: as a public library.
+#:
 #: Deliberately not ``choices`` on ``StudySpot.category``: as that model's
 #: docstring says, the vocabulary belongs to the importer, and a city dataset
 #: may introduce a value without the API having to change. What this bounds is
@@ -35,13 +41,7 @@ MAX_FILTER_LENGTH = 120
 #: filter control. A listing free to invent "coffee shop" would add an option to
 #: every visitor's filter list, and "Cafe", "cafe" and "Coffee Shop" would
 #: become three.
-LISTING_CATEGORIES = (
-    "cafe",
-    "public_library",
-    "special_library",
-    "academic_library",
-    "university_building",
-)
+LISTING_CATEGORIES = ("cafe",)
 
 
 class Borough(models.TextChoices):

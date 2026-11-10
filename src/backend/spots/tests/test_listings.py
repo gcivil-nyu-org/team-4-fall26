@@ -87,6 +87,7 @@ class TestCreating:
             {"latitude": 91},
             {"borough": "Hoboken"},
             {"category": "coffee shop"},
+            {"category": "public_library"},
             {"address": ""},
         ],
     )

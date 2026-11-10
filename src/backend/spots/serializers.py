@@ -88,7 +88,12 @@ class ListingSerializer(serializers.ModelSerializer):
     borough = BoroughField()
     category = serializers.ChoiceField(
         choices=LISTING_CATEGORIES,
-        error_messages={"invalid_choice": f"Must be one of: {', '.join(LISTING_CATEGORIES)}."},
+        error_messages={
+            "invalid_choice": (
+                "Not a category a business listing can use. Allowed: "
+                f"{', '.join(LISTING_CATEGORIES)}."
+            )
+        },
     )
 
     class Meta:

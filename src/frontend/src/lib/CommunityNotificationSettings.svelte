@@ -5,12 +5,15 @@
 	import type { Channel } from './communities';
 	import { communityRequest } from './communities';
 
-	let { communityId, channels, role }: { communityId: number; channels: Channel[]; role: string } = $props();
+	let { communityId, channels, role }: { communityId: number; channels: Channel[]; role: string } =
+		$props();
 	let modes = $state<Record<number, string>>({});
 	let saving = $state<Record<number, boolean>>({});
 	let error = $state('');
 	const visibleChannels = $derived(
-		channels.filter((channel) => role === 'owner' || role === 'moderator' || (!channel.private && !channel.locked))
+		channels.filter(
+			(channel) => role === 'owner' || role === 'moderator' || (!channel.private && !channel.locked)
+		)
 	);
 
 	onMount(() => {
@@ -23,7 +26,8 @@
 					);
 					if (current) modes[channel.id] = result.alerts;
 				} catch (cause) {
-					if (current) error = cause instanceof Error ? cause.message : 'Could not load preferences';
+					if (current)
+						error = cause instanceof Error ? cause.message : 'Could not load preferences';
 				}
 			})
 		);
@@ -35,11 +39,9 @@
 	async function setMode(channel: Channel, value: string) {
 		saving[channel.id] = true;
 		try {
-			await communityRequest(
-				`/communities/${communityId}/channels/${channel.id}/alerts`,
-				'PUT',
-				{ alerts: value }
-			);
+			await communityRequest(`/communities/${communityId}/channels/${channel.id}/alerts`, 'PUT', {
+				alerts: value
+			});
 			modes[channel.id] = value;
 			error = '';
 		} catch (cause) {
@@ -74,8 +76,29 @@
 </Card.Root>
 
 <style>
-	.settings-help { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.45; }
-	.channel-alert-setting { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:8px 0; border-top:1px solid var(--line); font-size:12px; }
-	.channel-alert-setting > span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-	.channel-alert-setting :global(select) { width:150px; flex:none; }
+	.settings-help {
+		margin: 0 0 10px;
+		color: var(--muted);
+		font-size: 12px;
+		line-height: 1.45;
+	}
+	.channel-alert-setting {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 14px;
+		padding: 8px 0;
+		border-top: 1px solid var(--line);
+		font-size: 12px;
+	}
+	.channel-alert-setting > span {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.channel-alert-setting :global(select) {
+		width: 150px;
+		flex: none;
+	}
 </style>

@@ -484,7 +484,11 @@
 					class:deleted={!!message.deleted_at}
 					id={`message-${message.id}`}
 					ondblclick={(event) => {
-						if (message.deleted_at || (event.target as HTMLElement).closest('button, a, input, textarea')) return;
+						if (
+							message.deleted_at ||
+							(event.target as HTMLElement).closest('button, a, input, textarea')
+						)
+							return;
 						event.preventDefault();
 						const trigger = event.currentTarget.querySelector<HTMLButtonElement>('.action-trigger');
 						if (trigger) {
@@ -529,7 +533,7 @@
 								<button
 									class="author profile-author"
 									onclick={(event) => onMemberSelect(message.author_name, event)}
-								>{message.author_name}</button
+									>{message.author_name}</button
 								>
 								<time class="timestamp" datetime={message.created_at}
 									>{formatTime(message.created_at)}</time

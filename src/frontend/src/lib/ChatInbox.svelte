@@ -6,6 +6,7 @@
 	import Inbox from '@lucide/svelte/icons/inbox';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { communityRequest } from './communities';
 	type Notice = {
 		id: number;
@@ -34,7 +35,7 @@
 	async function clearAll() {
 		if (!items.length || clearing) return;
 		clearing = true;
-		const latestByRoom = new Map<string, Notice>();
+		const latestByRoom = new SvelteMap<string, Notice>();
 		for (const item of items) {
 			const key = item.conversation_id
 				? `dm:${item.conversation_id}`
@@ -107,9 +108,11 @@
 		<Inbox size={19} />
 		<h2>Inbox</h2>
 		{#if items.length}<Badge variant="secondary">{items.length} unread</Badge><button
-			class="clear-all"
-			disabled={clearing}
-			onclick={() => (confirmClear = !confirmClear)}>{clearing ? 'Clearing…' : 'Clear all'}</button>{/if}<button
+				class="clear-all"
+				disabled={clearing}
+				onclick={() => (confirmClear = !confirmClear)}
+				>{clearing ? 'Clearing…' : 'Clear all'}</button
+			>{/if}<button
 			class="chat-icon {chatControls.icon}"
 			aria-label="Close inbox"
 			onclick={() => panel.hidePopover()}><X size={16} /></button
@@ -117,9 +120,14 @@
 	</header>
 	{#if confirmClear}
 		<div class="clear-confirm" role="group" aria-label="Clear unread inbox messages">
-			<div><strong>Clear your inbox?</strong><p>All current unread messages will be marked as read.</p></div>
+			<div>
+				<strong>Clear your inbox?</strong>
+				<p>All current unread messages will be marked as read.</p>
+			</div>
 			<div class="confirm-actions">
-				<button class="cancel-clear" disabled={clearing} onclick={() => (confirmClear = false)}>Cancel</button>
+				<button class="cancel-clear" disabled={clearing} onclick={() => (confirmClear = false)}
+					>Cancel</button
+				>
 				<button class="confirm-clear" disabled={clearing} onclick={() => void clearAll()}>
 					{clearing ? 'Clearing…' : 'Clear all'}
 				</button>
@@ -258,7 +266,9 @@
 			opacity: 0;
 		}
 	}
-	.notices a:hover :global(.notice-card) { transform: translateY(-2px); }
+	.notices a:hover :global(.notice-card) {
+		transform: translateY(-2px);
+	}
 	.inbox-panel.clearing :global(.notice-card) {
 		transform: translateX(10px);
 		opacity: 0;
@@ -315,8 +325,17 @@
 		box-shadow: 0 8px 24px #0000000b;
 		animation: inbox-confirm-in 160ms var(--ease-out) both;
 	}
-	.clear-confirm p { margin-top: 3px; font-size: 12px; color: var(--muted); }
-	.confirm-actions { display: flex; align-items: center; gap: 5px; flex: none; }
+	.clear-confirm p {
+		margin-top: 3px;
+		font-size: 12px;
+		color: var(--muted);
+	}
+	.confirm-actions {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		flex: none;
+	}
 	.confirm-actions button {
 		padding: 7px 9px;
 		border: 0;
@@ -326,12 +345,36 @@
 		font-weight: 650;
 		cursor: pointer;
 	}
-	.cancel-clear { background: var(--well); color: var(--ink); }
-	.confirm-clear { background: var(--accent); color: white; }
-	.confirm-actions button:disabled { opacity: .65; cursor: wait; }
-	@keyframes inbox-confirm-in { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+	.cancel-clear {
+		background: var(--well);
+		color: var(--ink);
+	}
+	.confirm-clear {
+		background: var(--accent);
+		color: white;
+	}
+	.confirm-actions button:disabled {
+		opacity: 0.65;
+		cursor: wait;
+	}
+	@keyframes inbox-confirm-in {
+		from {
+			opacity: 0;
+			transform: translateY(-5px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
 	@media (prefers-reduced-motion: reduce) {
-		.notices :global(.notice-card), .clear-confirm { animation: none; transition-duration: 100ms; }
-		.inbox-panel.clearing :global(.notice-card) { transform: none; }
+		.notices :global(.notice-card),
+		.clear-confirm {
+			animation: none;
+			transition-duration: 100ms;
+		}
+		.inbox-panel.clearing :global(.notice-card) {
+			transform: none;
+		}
 	}
 </style>

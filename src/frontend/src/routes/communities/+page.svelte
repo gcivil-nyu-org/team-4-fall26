@@ -14,13 +14,13 @@
 	import Sun from '@lucide/svelte/icons/sun';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Hash from '@lucide/svelte/icons/hash';
-import MessagesSquare from '@lucide/svelte/icons/messages-square';
-import Send from '@lucide/svelte/icons/send';
+	import MessagesSquare from '@lucide/svelte/icons/messages-square';
+	import Send from '@lucide/svelte/icons/send';
 	import Link2 from '@lucide/svelte/icons/link-2';
 	import Users from '@lucide/svelte/icons/users';
-import Plus from '@lucide/svelte/icons/plus';
-import LockKeyhole from '@lucide/svelte/icons/lock-keyhole';
-import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Plus from '@lucide/svelte/icons/plus';
+	import LockKeyhole from '@lucide/svelte/icons/lock-keyhole';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import UserRound from '@lucide/svelte/icons/user-round';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Settings from '@lucide/svelte/icons/settings';
@@ -438,11 +438,9 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 		unlockingChannel = true;
 		error = '';
 		try {
-			await communityRequest(
-				`/communities/${selected.id}/channels/${channel.id}/unlock`,
-				'POST',
-				{ password: unlockPassword }
-			);
+			await communityRequest(`/communities/${selected.id}/channels/${channel.id}/unlock`, 'POST', {
+				password: unlockPassword
+			});
 			unlockPassword = '';
 			await choose(selected.id, channel.id);
 		} catch (cause) {
@@ -804,12 +802,14 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 		menuTop = Math.max(4, Math.min(pointer ? event.clientY : rect.bottom, innerHeight - 350));
 		menuCommunity = community;
 		communityMenu?.showPopover();
-		void tick().then(() => {
-			if (!communityMenu) return;
-			menuLeft = Math.max(4, Math.min(menuLeft, innerWidth - communityMenu.offsetWidth - 8));
-			menuTop = Math.max(4, Math.min(menuTop, innerHeight - communityMenu.offsetHeight - 8));
-			return tick();
-		}).then(() => communityMenu?.querySelector('button')?.focus());
+		void tick()
+			.then(() => {
+				if (!communityMenu) return;
+				menuLeft = Math.max(4, Math.min(menuLeft, innerWidth - communityMenu.offsetWidth - 8));
+				menuTop = Math.max(4, Math.min(menuTop, innerHeight - communityMenu.offsetHeight - 8));
+				return tick();
+			})
+			.then(() => communityMenu?.querySelector('button')?.focus());
 	}
 
 	async function communityOption(
@@ -854,7 +854,9 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 			membersOpen = true;
 			await loadSettings();
 			await tick();
-			document.getElementById('community-notifications')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			document
+				.getElementById('community-notifications')
+				?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 		}
 		if (option === 'create') {
 			channelsOpen = true;
@@ -968,10 +970,7 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 				!event.target.closest('.member-profile-popover, .profile-author, .member-profile-trigger')
 			)
 				memberProfile = null;
-			if (
-				channelMenuOpen !== null &&
-				!event.target.closest('.channel-menu, .channel-row')
-			)
+			if (channelMenuOpen !== null && !event.target.closest('.channel-menu, .channel-row'))
 				channelMenuOpen = null;
 			if (accountMenuOpen && !event.target.closest('.account-menu-wrap')) accountMenuOpen = false;
 		}
@@ -1041,31 +1040,68 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 						<span class:online={memberProfile.presence?.online} class="profile-presence-dot"></span>
 					</div>
 					<div class="profile-name-row">
-						<div><h2>{memberProfile.name}</h2><span class="profile-role">{memberProfile.role}</span></div>
-						<button class="profile-close" aria-label="Close profile" onclick={() => (memberProfile = null)}><X size={16} /></button>
+						<div>
+							<h2>{memberProfile.name}</h2>
+							<span class="profile-role">{memberProfile.role}</span>
+						</div>
+						<button
+							class="profile-close"
+							aria-label="Close profile"
+							onclick={() => (memberProfile = null)}><X size={16} /></button
+						>
 					</div>
 					<div class="profile-status" class:online={memberProfile.presence?.online}>
-						<span></span>{memberProfile.presence ? (memberProfile.presence.online ? 'Online' : 'Offline') : 'Status unavailable'}
+						<span></span>{memberProfile.presence
+							? memberProfile.presence.online
+								? 'Online'
+								: 'Offline'
+							: 'Status unavailable'}
 						{#if memberProfile.presence?.last_seen && !memberProfile.presence.online}
-							<small>· last seen {new Date(memberProfile.presence.last_seen).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</small>
+							<small
+								>· last seen {new Date(memberProfile.presence.last_seen).toLocaleString([], {
+									dateStyle: 'medium',
+									timeStyle: 'short'
+								})}</small
+							>
 						{/if}
 					</div>
 					<div class="profile-section">
-						<h3>About me</h3><p>No bio added yet.</p>
+						<h3>About me</h3>
+						<p>No bio added yet.</p>
 					</div>
 					<div class="profile-section profile-details">
 						<h3>In this community</h3>
-						<div><span>Role</span><strong>{memberProfile.role === 'owner' ? 'Community owner' : memberProfile.role === 'moderator' ? 'Moderator' : memberProfile.role === 'member' ? 'Member' : 'Guest'}</strong></div>
-						{#if memberProfile.joinedAt}<div><span>Member since</span><strong>{new Date(memberProfile.joinedAt).toLocaleDateString([], { month: 'long', year: 'numeric' })}</strong></div>{/if}
+						<div>
+							<span>Role</span><strong
+								>{memberProfile.role === 'owner'
+									? 'Community owner'
+									: memberProfile.role === 'moderator'
+										? 'Moderator'
+										: memberProfile.role === 'member'
+											? 'Member'
+											: 'Guest'}</strong
+							>
+						</div>
+						{#if memberProfile.joinedAt}<div>
+								<span>Member since</span><strong
+									>{new Date(memberProfile.joinedAt).toLocaleDateString([], {
+										month: 'long',
+										year: 'numeric'
+									})}</strong
+								>
+							</div>{/if}
 						{#if selected}<div><span>Community</span><strong>{selected.name}</strong></div>{/if}
 					</div>
 					{#if !memberProfile.isMe && selected?.role !== 'visitor' && (memberProfile.userId || memberProfile.guestMemberId)}
-						<button class="profile-message" onclick={() => {
-							const target = memberProfile;
-							memberProfile = null;
-							if (target?.userId) void startMemberDM(target.userId);
-							else if (target?.guestMemberId) void startGuestDM(target.guestMemberId);
-						}}><Send size={15} /> Message</button>
+						<button
+							class="profile-message"
+							onclick={() => {
+								const target = memberProfile;
+								memberProfile = null;
+								if (target?.userId) void startMemberDM(target.userId);
+								else if (target?.guestMemberId) void startGuestDM(target.guestMemberId);
+							}}><Send size={15} /> Message</button
+						>
 					{/if}
 				</div>
 			</div>
@@ -1082,26 +1118,54 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 		>
 			{#if menuCommunity}
 				<div class="community-pop-heading">
-					<span class="community-pop-avatar" style:background={avatarColor(menuCommunity.name)}>{initials(menuCommunity.name)}</span>
-					<div><strong>{menuCommunity.name}</strong><small>{menuCommunity.school || 'Study community'}{menuCommunity.course ? ` · ${menuCommunity.course}` : ''}</small></div>
+					<span class="community-pop-avatar" style:background={avatarColor(menuCommunity.name)}
+						>{initials(menuCommunity.name)}</span
+					>
+					<div>
+						<strong>{menuCommunity.name}</strong><small
+							>{menuCommunity.school || 'Study community'}{menuCommunity.course
+								? ` · ${menuCommunity.course}`
+								: ''}</small
+						>
+					</div>
 				</div>
-				{#if menuCommunity.description}<p class="community-pop-description">{menuCommunity.description}</p>{/if}
+				{#if menuCommunity.description}<p class="community-pop-description">
+						{menuCommunity.description}
+					</p>{/if}
 				<div class="community-pop-divider"></div>
 				<span class="community-pop-label">Community</span>
 				{#if menuCommunity.role !== 'visitor'}
-					<button onclick={() => void communityOption('members')}><UserRound size={15} /> Members &amp; roles</button>
-					<button onclick={() => void communityOption('settings')}><Settings size={15} /> {menuCommunity.role === 'owner' ? 'Edit community' : 'Community settings'}</button>
-					<button onclick={() => void communityOption('notifications')}><Bell size={15} /> Notification settings</button>
+					<button onclick={() => void communityOption('members')}
+						><UserRound size={15} /> Members &amp; roles</button
+					>
+					<button onclick={() => void communityOption('settings')}
+						><Settings size={15} />
+						{menuCommunity.role === 'owner' ? 'Edit community' : 'Community settings'}</button
+					>
+					<button onclick={() => void communityOption('notifications')}
+						><Bell size={15} /> Notification settings</button
+					>
 				{/if}
 				{#if menuCommunity.role === 'owner' || menuCommunity.role === 'moderator'}
-					<button onclick={() => void communityOption('invite')}><Link2 size={15} /> Invite people</button>
+					<button onclick={() => void communityOption('invite')}
+						><Link2 size={15} /> Invite people</button
+					>
 				{/if}
 				{#if menuCommunity.role !== 'visitor'}<button onclick={() => void communityOption('create')}
 						><Plus size={15} /> Create channel</button
 					>{/if}
-				{#if menuCommunity.role === 'visitor'}<button onclick={() => void enterFromExplore(menuCommunity!)}><Users size={15} /> Join community</button>{/if}
-				{#if menuCommunity.role === 'owner' || menuCommunity.role === 'member' || menuCommunity.role === 'moderator'}<div class="community-pop-divider"></div>{/if}
-				{#if menuCommunity.role === 'owner'}<button class="community-leave" onclick={() => void communityOption('delete')}><Trash2 size={15} /> Delete community</button>{/if}
+				{#if menuCommunity.role === 'visitor'}<button
+						onclick={() => void enterFromExplore(menuCommunity!)}
+						><Users size={15} /> Join community</button
+					>{/if}
+				{#if menuCommunity.role === 'owner' || menuCommunity.role === 'member' || menuCommunity.role === 'moderator'}<div
+						class="community-pop-divider"
+					></div>{/if}
+				{#if menuCommunity.role === 'owner'}<button
+						class="community-leave"
+						onclick={() => void communityOption('delete')}
+						><Trash2 size={15} /> Delete community</button
+					>{/if}
 				{#if menuCommunity.role === 'member' || menuCommunity.role === 'moderator'}<button
 						class="community-leave"
 						onclick={() => void communityOption('leave')}><X size={15} /> Leave community…</button
@@ -1305,45 +1369,45 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 							class="channel-rail"
 							aria-label={`Channels in ${selected.name}`}
 						>
-				<div class="community-header">
-					<button
-						class="community-selector"
-						aria-label={`Open ${selected.name} navigation`}
-		aria-haspopup="true"
-						onclick={(event) => selected && openCommunityMenu(event, selected)}
-						oncontextmenu={(event) => selected && openCommunityMenu(event, selected)}
-					>
-						<span
-							class="community-avatar"
-							style="background:{avatarColor(selected.name)}"
-							aria-hidden="true"
-						>
-							{initials(selected.name)}
-						</span>
-						<span class="community-header-text">
-							<span class="community-name">{selected.name}</span>
-							<span class="community-meta"
-								>{selected.member_count}
-								{selected.member_count === 1 ? 'member' : 'members'}</span
-							>
-						</span>
-						<ChevronDown class="community-selector-chevron" size={15} />
-					</button>
+							<div class="community-header">
+								<button
+									class="community-selector"
+									aria-label={`Open ${selected.name} navigation`}
+									aria-haspopup="true"
+									onclick={(event) => selected && openCommunityMenu(event, selected)}
+									oncontextmenu={(event) => selected && openCommunityMenu(event, selected)}
+								>
+									<span
+										class="community-avatar"
+										style="background:{avatarColor(selected.name)}"
+										aria-hidden="true"
+									>
+										{initials(selected.name)}
+									</span>
+									<span class="community-header-text">
+										<span class="community-name">{selected.name}</span>
+										<span class="community-meta"
+											>{selected.member_count}
+											{selected.member_count === 1 ? 'member' : 'members'}</span
+										>
+									</span>
+									<ChevronDown class="community-selector-chevron" size={15} />
+								</button>
 							</div>
 
 							<div class="rail-section">
 								<div class="rail-section-header">
 									<span>Text channels</span>
-								{#if selected.role !== 'visitor'}
+									{#if selected.role !== 'visitor'}
 										<button
 											class="rail-add-btn {chatControls.icon}"
 											id="add-channel-button"
-										aria-label="Create a text channel"
+											aria-label="Create a text channel"
 											title={(selected.channels?.length ?? 0) >= 20
 												? 'Channel limit reached'
-											: 'Create a text channel'}
+												: 'Create a text channel'}
 											disabled={(selected.channels?.length ?? 0) >= 20}
-										onclick={() => void openChannelCreate()}><Plus size={17} /></button
+											onclick={() => void openChannelCreate()}><Plus size={17} /></button
 										>
 									{/if}
 								</div>
@@ -1372,8 +1436,8 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 											<Input
 												id="new-channel-password"
 												type="password"
-													minlength={4}
-													maxlength={72}
+												minlength={4}
+												maxlength={72}
 												bind:value={channelPassword}
 												placeholder="Add a passphrase"
 												autocomplete="new-password"
@@ -1403,14 +1467,16 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 													id={`channel-select-${channel.id}`}
 													oncontextmenu={(e) => {
 														e.preventDefault();
-										void toggleChannelMenu(channel.id, e);
+														void toggleChannelMenu(channel.id, e);
 													}}
 													aria-current={activeChannelId === channel.id ? 'page' : undefined}
 													onclick={() => selectChannel(channel.id)}
 												>
-									{#if channel.password_protected}<LockKeyhole size={15} />{:else}<Hash size={17} />{/if}
+													{#if channel.password_protected}<LockKeyhole size={15} />{:else}<Hash
+															size={17}
+														/>{/if}
 													<span class="ch-name">{channel.name}</span>
-									{#if channel.locked}<span class="locked-chip">Locked</span>{/if}
+													{#if channel.locked}<span class="locked-chip">Locked</span>{/if}
 													{#if channel.archived}<span class="archived-chip">archived</span>{/if}
 												</button>
 												<button
@@ -1419,7 +1485,7 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 													aria-label={`Options for #${channel.name}`}
 													aria-expanded={channelMenuOpen === channel.id}
 													aria-controls={`channel-options-${channel.id}`}
-									onclick={(event) => void toggleChannelMenu(channel.id, event)}>⋯</button
+													onclick={(event) => void toggleChannelMenu(channel.id, event)}>⋯</button
 												>
 											</div>
 											{#if channelMenuOpen === channel.id}
@@ -1427,15 +1493,15 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 													class="channel-menu"
 													id={`channel-options-${channel.id}`}
 													role="group"
-									popover="manual"
+													popover="manual"
 													aria-label={`Options for #${channel.name}`}
-									style:left={channelMenuLeft + 'px'}
-									style:top={channelMenuTop + 'px'}
+													style:left={channelMenuLeft + 'px'}
+													style:top={channelMenuTop + 'px'}
 												>
 													<button
 														class={chatControls.ghost}
 														onclick={() => {
-										channelMenuOpen = null;
+															channelMenuOpen = null;
 															selectChannel(channel.id);
 															void shareChannel();
 														}}>Copy channel link</button
@@ -1482,45 +1548,73 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 							<div class="rail-actions">
 								<div class="account-menu-wrap">
 									<button
-									class="self-card"
-									aria-label="Open your account and community menu"
-									aria-expanded={accountMenuOpen}
-									onclick={(event) => void toggleAccountMenu(event)}
-									oncontextmenu={(event) => void toggleAccountMenu(event)}
-								>
-									<span style:background={avatarColor(selfName ?? 'You')}
-										>{initials(selfName ?? 'You')}</span
+										class="self-card"
+										aria-label="Open your account and community menu"
+										aria-expanded={accountMenuOpen}
+										onclick={(event) => void toggleAccountMenu(event)}
+										oncontextmenu={(event) => void toggleAccountMenu(event)}
 									>
-									<div>
-										<strong>{selfName ?? 'Your account'}</strong>
-										<small>{selected.role === 'visitor' ? 'Previewing community' : selected.role}</small>
-									</div>
-									<ChevronDown size={15} />
-								</button>
+										<span style:background={avatarColor(selfName ?? 'You')}
+											>{initials(selfName ?? 'You')}</span
+										>
+										<div>
+											<strong>{selfName ?? 'Your account'}</strong>
+											<small
+												>{selected.role === 'visitor'
+													? 'Previewing community'
+													: selected.role}</small
+											>
+										</div>
+										<ChevronDown size={15} />
+									</button>
 									{#if accountMenuOpen}
-										<div class="account-menu" role="group" aria-label="Account and community actions">
+										<div
+											class="account-menu"
+											role="group"
+											aria-label="Account and community actions"
+										>
 											<div class="account-menu-heading">
 												<strong>{selfName ?? 'Your account'}</strong>
 												<span class="role-pill">{selected.role}</span>
 											</div>
 											<div class="account-profile">
-												<span class="account-status-dot"></span><span>Studying {selected.course || 'with the community'}</span>
+												<span class="account-status-dot"></span><span
+													>Studying {selected.course || 'with the community'}</span
+												>
 											</div>
-											<p class="account-bio">“Here to learn together, share notes, and keep the study momentum going.”</p>
-											<div class="account-meta"><span>ROLE</span><strong>{selected.role === 'owner' ? 'Community owner' : selected.role === 'moderator' ? 'Moderator' : selected.role === 'visitor' ? 'Guest' : 'Member'}</strong></div>
-											<div class="account-meta"><span>COMMUNITY</span><strong>{selected.name}</strong></div>
+											<p class="account-bio">
+												“Here to learn together, share notes, and keep the study momentum going.”
+											</p>
+											<div class="account-meta">
+												<span>ROLE</span><strong
+													>{selected.role === 'owner'
+														? 'Community owner'
+														: selected.role === 'moderator'
+															? 'Moderator'
+															: selected.role === 'visitor'
+																? 'Guest'
+																: 'Member'}</strong
+												>
+											</div>
+											<div class="account-meta">
+												<span>COMMUNITY</span><strong>{selected.name}</strong>
+											</div>
 											{#if selected.role === 'owner' || selected.role === 'moderator'}
 												<button onclick={() => runAccountOption('invite')}>Invite people</button>
 											{/if}
 											{#if selected.role === 'owner' || selected.role === 'moderator'}
-												<button onclick={() => runAccountOption('settings')}>Manage community</button>
+												<button onclick={() => runAccountOption('settings')}
+													>Manage community</button
+												>
 											{/if}
 											{#if selected.role === 'member' || selected.role === 'moderator'}
 												<button class="account-leave" onclick={() => runAccountOption('leave')}>
 													Leave community
 												</button>
 											{:else if selected.role === 'owner'}
-												<div class="owner-note">Transfer ownership before leaving this community.</div>
+												<div class="owner-note">
+													Transfer ownership before leaving this community.
+												</div>
 											{/if}
 										</div>
 									{/if}
@@ -1689,7 +1783,10 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 														aria-label="Channel passphrase"
 														autocomplete="current-password"
 													/>
-													<button class="unlock-button" disabled={unlockingChannel || !unlockPassword}>
+													<button
+														class="unlock-button"
+														disabled={unlockingChannel || !unlockPassword}
+													>
 														{unlockingChannel ? 'Opening…' : 'Unlock channel'}
 													</button>
 												</form>
@@ -1761,15 +1858,19 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 											onclick={(event) => void openMemberProfile(member.display_name, event)}
 										>
 											{initials(member.display_name)}
-											<span class="member-presence-dot" class:online={accountPresence[member.user_id]?.online}></span>
+											<span
+												class="member-presence-dot"
+												class:online={accountPresence[member.user_id]?.online}
+											></span>
 										</button>
 										<div class="member-info">
-							<button class="member-profile-trigger"
-								onclick={(event) => void openMemberProfile(member.display_name, event)}
+											<button
+												class="member-profile-trigger"
+												onclick={(event) => void openMemberProfile(member.display_name, event)}
 												aria-haspopup="dialog"
 												>{member.is_me
 													? member.display_name + ' (you)'
-									: member.display_name}</button
+													: member.display_name}</button
 											>
 											<span
 												>{member.user_id === String(selected.owner_id)
@@ -1789,12 +1890,25 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 								{/each}
 								{#each guestMembers as guest (guest.id)}
 									<div class="member-card">
-										<button class="member-avatar" style="background:{avatarColor(guest.display_name)}" title={`View ${guest.display_name}'s profile`} onclick={(event) => void openMemberProfile(guest.display_name, event)}>
+										<button
+											class="member-avatar"
+											style="background:{avatarColor(guest.display_name)}"
+											title={`View ${guest.display_name}'s profile`}
+											onclick={(event) => void openMemberProfile(guest.display_name, event)}
+										>
 											{initials(guest.display_name)}
-											<span class="member-presence-dot" class:online={guestPresence[String(guest.id)]?.online}></span>
+											<span
+												class="member-presence-dot"
+												class:online={guestPresence[String(guest.id)]?.online}
+											></span>
 										</button>
 										<div class="member-info">
-											<button class="member-profile-trigger" aria-haspopup="dialog" onclick={(event) => void openMemberProfile(guest.display_name, event)}>{guest.display_name}{guest.is_me ? ' (you)' : ''}</button>
+											<button
+												class="member-profile-trigger"
+												aria-haspopup="dialog"
+												onclick={(event) => void openMemberProfile(guest.display_name, event)}
+												>{guest.display_name}{guest.is_me ? ' (you)' : ''}</button
+											>
 											<span>{guest.role === 'owner' ? 'Owner' : 'Guest'}</span>
 										</div>
 										{#if !guest.is_me && selected.role !== 'visitor'}
@@ -1829,14 +1943,19 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 											onclick={(event) => void openMemberProfile(member.display_name, event)}
 										>
 											{initials(member.display_name)}
-											<span class="member-presence-dot" class:online={accountPresence[member.user_id]?.online}></span>
+											<span
+												class="member-presence-dot"
+												class:online={accountPresence[member.user_id]?.online}
+											></span>
 										</button>
 										<div class="member-info">
-											<button class="member-profile-trigger" aria-haspopup="dialog"
-								onclick={(event) => void openMemberProfile(member.display_name, event)}
+											<button
+												class="member-profile-trigger"
+												aria-haspopup="dialog"
+												onclick={(event) => void openMemberProfile(member.display_name, event)}
 												>{member.is_me
 													? member.display_name + ' (you)'
-									: member.display_name}</button
+													: member.display_name}</button
 											>
 											<span
 												>{member.user_id === String(selected.owner_id)
@@ -1885,12 +2004,25 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 								{/each}
 								{#each guestMembers as guest (guest.id)}
 									<div class="member-card">
-										<button class="member-avatar" style="background:{avatarColor(guest.display_name)}" title={`View ${guest.display_name}'s profile`} onclick={(event) => void openMemberProfile(guest.display_name, event)}>
+										<button
+											class="member-avatar"
+											style="background:{avatarColor(guest.display_name)}"
+											title={`View ${guest.display_name}'s profile`}
+											onclick={(event) => void openMemberProfile(guest.display_name, event)}
+										>
 											{initials(guest.display_name)}
-											<span class="member-presence-dot" class:online={guestPresence[String(guest.id)]?.online}></span>
+											<span
+												class="member-presence-dot"
+												class:online={guestPresence[String(guest.id)]?.online}
+											></span>
 										</button>
 										<div class="member-info">
-											<button class="member-profile-trigger" aria-haspopup="dialog" onclick={(event) => void openMemberProfile(guest.display_name, event)}>{guest.display_name}{guest.is_me ? ' (you)' : ''}</button>
+											<button
+												class="member-profile-trigger"
+												aria-haspopup="dialog"
+												onclick={(event) => void openMemberProfile(guest.display_name, event)}
+												>{guest.display_name}{guest.is_me ? ' (you)' : ''}</button
+											>
 											<span>{guest.role === 'owner' ? 'Owner' : 'Guest'}</span>
 										</div>
 										{#if !guest.is_me && selected.role !== 'visitor'}
@@ -1999,57 +2131,57 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 													>{[selected.school, selected.course].filter(Boolean).join(' · ')}</small
 												>{/if}
 										</Card.Root>
-						<CommunityNotificationSettings
-							communityId={selected.id}
-							channels={selected.channels ?? []}
-							role={selected.role}
-						/>
-						{#if selected.role === 'owner' || selected.role === 'moderator'}
-							<Card.Root class="settings-section">
-											<div class="settings-section-head">Invite links</div>
-											<p class="rail-muted">Invite classmates to this community.</p>
-											<button
-												class="btn-sm-primary {chatControls.primary}"
-												onclick={() => void createInvite()}
-												>Create 7-day invite to selected channel</button
-											>
-											{@render generatedInvite()}
-											{#each invites as invite (invite.id)}
-												<div class="invite-row">
-													<span
-														>#{invite.id} · {invite.uses}{invite.max_uses
-															? `/${invite.max_uses}`
-															: ''} uses{invite.revoked ? ' · Revoked' : ''}</span
-													>
-													{#if !invite.revoked}
-														<button
-															class="action-chip danger {chatControls.danger}"
-															onclick={() =>
-																void action(
-																	`/communities/${activeCommunityId()}/invites/${invite.id}`,
-																	'DELETE'
-																)}>Revoke</button
+										<CommunityNotificationSettings
+											communityId={selected.id}
+											channels={selected.channels ?? []}
+											role={selected.role}
+										/>
+										{#if selected.role === 'owner' || selected.role === 'moderator'}
+											<Card.Root class="settings-section">
+												<div class="settings-section-head">Invite links</div>
+												<p class="rail-muted">Invite classmates to this community.</p>
+												<button
+													class="btn-sm-primary {chatControls.primary}"
+													onclick={() => void createInvite()}
+													>Create 7-day invite to selected channel</button
+												>
+												{@render generatedInvite()}
+												{#each invites as invite (invite.id)}
+													<div class="invite-row">
+														<span
+															>#{invite.id} · {invite.uses}{invite.max_uses
+																? `/${invite.max_uses}`
+																: ''} uses{invite.revoked ? ' · Revoked' : ''}</span
 														>
-													{/if}
-												</div>
-											{/each}
-											{#if selected.role === 'owner' || selected.role === 'moderator'}
-												<div class="settings-share-row">
-													<button
-														class="btn-sm-outline {chatControls.outline}"
-														onclick={() => void shareChannel()}>Copy channel link</button
-													>
-													{#if copyStatus}<p role="status">{copyStatus}</p>{/if}
-													{#if shareLink}<Input
-															aria-label="Shareable channel URL"
-															readonly
-															value={shareLink}
-															onclick={(e) => e.currentTarget.select()}
-														/>{/if}
-												</div>
-											{/if}
-							</Card.Root>
-						{/if}
+														{#if !invite.revoked}
+															<button
+																class="action-chip danger {chatControls.danger}"
+																onclick={() =>
+																	void action(
+																		`/communities/${activeCommunityId()}/invites/${invite.id}`,
+																		'DELETE'
+																	)}>Revoke</button
+															>
+														{/if}
+													</div>
+												{/each}
+												{#if selected.role === 'owner' || selected.role === 'moderator'}
+													<div class="settings-share-row">
+														<button
+															class="btn-sm-outline {chatControls.outline}"
+															onclick={() => void shareChannel()}>Copy channel link</button
+														>
+														{#if copyStatus}<p role="status">{copyStatus}</p>{/if}
+														{#if shareLink}<Input
+																aria-label="Shareable channel URL"
+																readonly
+																value={shareLink}
+																onclick={(e) => e.currentTarget.select()}
+															/>{/if}
+													</div>
+												{/if}
+											</Card.Root>
+										{/if}
 										{#if selected.role === 'owner'}
 											<Card.Root class="settings-section">
 												<div class="settings-section-head">Danger zone</div>
@@ -2146,7 +2278,9 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 		display: grid;
 		gap: 4px;
 	}
-	.community-pop:popover-open { animation: chat-reveal 160ms var(--ease-out) both; }
+	.community-pop:popover-open {
+		animation: chat-reveal 160ms var(--ease-out) both;
+	}
 	.community-pop strong {
 		padding: 8px 10px 4px;
 		font-size: 11px;
@@ -2162,7 +2296,9 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 		gap: 10px;
 		padding: 8px 8px 10px;
 	}
-	.community-pop-heading > div { min-width: 0; }
+	.community-pop-heading > div {
+		min-width: 0;
+	}
 	.community-pop-heading strong {
 		display: block;
 		padding: 0;
@@ -2189,7 +2325,11 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 		font-size: 12px;
 		font-weight: 750;
 	}
-	.community-pop-divider { height: 1px; margin: 3px 4px; background: var(--line); }
+	.community-pop-divider {
+		height: 1px;
+		margin: 3px 4px;
+		background: var(--line);
+	}
 	.community-pop-description {
 		margin: 0 8px 7px;
 		color: var(--muted);
@@ -2206,11 +2346,16 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 		color: var(--muted);
 		font-size: 10px;
 		font-weight: 750;
-		letter-spacing: .08em;
+		letter-spacing: 0.08em;
 		text-transform: uppercase;
 	}
-	.community-pop .community-leave { margin-top: 3px; color: var(--danger); }
-	.community-pop .community-leave:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+	.community-pop .community-leave {
+		margin-top: 3px;
+		color: var(--danger);
+	}
+	.community-pop .community-leave:hover {
+		background: color-mix(in srgb, var(--danger) 10%, transparent);
+	}
 	.member-profile-popover {
 		position: fixed;
 		z-index: 100;
@@ -2224,8 +2369,13 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 		box-shadow: 0 22px 64px rgb(18 20 18 / 26%);
 		animation: chat-reveal 160ms var(--ease-out) both;
 	}
-	.profile-cover { height: 82px; opacity: .88; }
-	.profile-content { padding: 0 16px 16px; }
+	.profile-cover {
+		height: 82px;
+		opacity: 0.88;
+	}
+	.profile-content {
+		padding: 0 16px 16px;
+	}
 	.profile-avatar {
 		position: relative;
 		width: 70px;
@@ -2251,9 +2401,20 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 		background: #858b91;
 	}
 	.profile-presence-dot.online,
-	.member-presence-dot.online { background: #43b581; }
-	.profile-name-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-	.profile-name-row h2 { margin: 4px 0 3px; font-size: 18px; letter-spacing: -.025em; }
+	.member-presence-dot.online {
+		background: #43b581;
+	}
+	.profile-name-row {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 10px;
+	}
+	.profile-name-row h2 {
+		margin: 4px 0 3px;
+		font-size: 18px;
+		letter-spacing: -0.025em;
+	}
 	.profile-role {
 		padding: 3px 7px;
 		border-radius: 999px;
@@ -2263,23 +2424,110 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 		font-weight: 700;
 		text-transform: capitalize;
 	}
-	.profile-close { display:grid; place-items:center; width:30px; height:30px; border:0; border-radius:9px; background:transparent; color:var(--muted); cursor:pointer; }
-	.profile-close:hover { background:var(--well); color:var(--ink); }
-	.profile-status { display:flex; align-items:center; gap:7px; margin:13px 0; color:var(--muted); font-size:12px; }
-	.profile-status > span { width:9px; height:9px; border-radius:50%; background:#858b91; }
-	.profile-status.online > span { background:#43b581; }
-	.profile-status small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-	.profile-section { padding:12px 0; border-top:1px solid var(--line); }
-	.profile-section h3 { margin:0 0 8px; color:var(--muted); font-size:10px; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }
-	.profile-section p { margin:0; color:var(--muted); font-size:12px; line-height:1.45; }
-	.profile-details > div { display:flex; justify-content:space-between; gap:10px; padding:3px 0; font-size:11px; }
-	.profile-details > div span { color:var(--muted); }
-	.profile-details > div strong { min-width:0; overflow:hidden; text-align:right; text-overflow:ellipsis; white-space:nowrap; }
-	.profile-message { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:8px; padding:9px; border:0; border-radius:11px; background:var(--accent); color:white; font:inherit; font-size:12px; font-weight:700; cursor:pointer; transition:transform 140ms var(--ease-out), filter 140ms ease; }
-	.profile-message:hover { filter:brightness(1.05); transform:translateY(-1px); }
+	.profile-close {
+		display: grid;
+		place-items: center;
+		width: 30px;
+		height: 30px;
+		border: 0;
+		border-radius: 9px;
+		background: transparent;
+		color: var(--muted);
+		cursor: pointer;
+	}
+	.profile-close:hover {
+		background: var(--well);
+		color: var(--ink);
+	}
+	.profile-status {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		margin: 13px 0;
+		color: var(--muted);
+		font-size: 12px;
+	}
+	.profile-status > span {
+		width: 9px;
+		height: 9px;
+		border-radius: 50%;
+		background: #858b91;
+	}
+	.profile-status.online > span {
+		background: #43b581;
+	}
+	.profile-status small {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.profile-section {
+		padding: 12px 0;
+		border-top: 1px solid var(--line);
+	}
+	.profile-section h3 {
+		margin: 0 0 8px;
+		color: var(--muted);
+		font-size: 10px;
+		font-weight: 750;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+	.profile-section p {
+		margin: 0;
+		color: var(--muted);
+		font-size: 12px;
+		line-height: 1.45;
+	}
+	.profile-details > div {
+		display: flex;
+		justify-content: space-between;
+		gap: 10px;
+		padding: 3px 0;
+		font-size: 11px;
+	}
+	.profile-details > div span {
+		color: var(--muted);
+	}
+	.profile-details > div strong {
+		min-width: 0;
+		overflow: hidden;
+		text-align: right;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.profile-message {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		width: 100%;
+		margin-top: 8px;
+		padding: 9px;
+		border: 0;
+		border-radius: 11px;
+		background: var(--accent);
+		color: white;
+		font: inherit;
+		font-size: 12px;
+		font-weight: 700;
+		cursor: pointer;
+		transition:
+			transform 140ms var(--ease-out),
+			filter 140ms ease;
+	}
+	.profile-message:hover {
+		filter: brightness(1.05);
+		transform: translateY(-1px);
+	}
 	@media (prefers-reduced-motion: reduce) {
-		.community-pop:popover-open, .member-profile-popover { animation:none; }
-		.profile-message { transition:none; }
+		.community-pop:popover-open,
+		.member-profile-popover {
+			animation: none;
+		}
+		.profile-message {
+			transition: none;
+		}
 	}
 	.community-pop button {
 		display: flex;
@@ -2955,10 +3203,16 @@ import ChevronDown from '@lucide/svelte/icons/chevron-down';
 		font-weight: 650;
 		cursor: pointer;
 	}
-	.member-info .member-profile-trigger:hover { color: var(--accent-text); text-decoration: underline; }
+	.member-info .member-profile-trigger:hover {
+		color: var(--accent-text);
+		text-decoration: underline;
+	}
 	.member-avatar:focus-visible,
 	.member-profile-trigger:focus-visible,
-	.profile-author:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+	.profile-author:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
 	.member-info span {
 		font-size: 11px;
 		color: var(--sb-muted);

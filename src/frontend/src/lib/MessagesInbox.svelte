@@ -190,7 +190,7 @@
 				</button>
 			</h1>
 		</div>
-			<div class="header-actions">
+		<div class="header-actions">
 			<button
 				class="theme-toggle"
 				aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}

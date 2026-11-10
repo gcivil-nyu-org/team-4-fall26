@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import SiteHeader from '$lib/SiteHeader.svelte';
@@ -39,13 +40,19 @@
 	const problem = (cause: unknown) =>
 		cause instanceof Error ? cause.message : 'Something went wrong.';
 	function messagesPath(conversationId?: number) {
-		const params = new URLSearchParams();
+		const params = new SvelteURLSearchParams();
 		if (conversationId) params.set('dm', String(conversationId));
 		if (returnTo !== resolve('/communities')) {
 			params.set('returnTo', returnTo);
 			params.set('returnLabel', returnLabel);
 		}
 		return params.size ? resolve(`/messages?${params.toString()}`) : resolve('/messages');
+	}
+	function backToCommunity() {
+		const communityRoot = resolve('/communities');
+		// returnTo was validated to this resolved pathname during initialization.
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		void goto(communityRoot + returnTo.slice(communityRoot.length));
 	}
 
 	async function refresh() {
@@ -309,7 +316,7 @@
 		ontheme={toggleTheme}
 		onconversationaction={conversationAction}
 		onselect={choose}
-		onback={() => void goto(returnTo)}
+		onback={backToCommunity}
 		onnew={() => void newConversation('direct')}
 		onnewgroup={() => void newConversation('group')}
 	/>

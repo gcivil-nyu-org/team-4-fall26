@@ -16,6 +16,7 @@ def demo_client() -> APIClient:
 @pytest.mark.django_db
 def test_demo_setup_is_repeatable_and_samples_are_usable(settings):
     settings.DEBUG = True
+    settings.CHAT_GUEST_ACCESS = True
     settings.CHAT_GUEST_DEMO = True
     client = demo_client()
     assert client.post("/chat/demo").status_code == 200
@@ -54,6 +55,7 @@ def test_demo_setup_is_repeatable_and_samples_are_usable(settings):
 @pytest.mark.django_db
 def test_demo_sessions_have_separate_private_conversations(settings):
     settings.DEBUG = True
+    settings.CHAT_GUEST_ACCESS = True
     settings.CHAT_GUEST_DEMO = True
     first, second = demo_client(), demo_client()
     assert first.post("/chat/demo").status_code == 200

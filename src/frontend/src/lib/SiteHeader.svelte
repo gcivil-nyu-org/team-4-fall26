@@ -24,7 +24,6 @@
 </script>
 
 {#snippet destinations()}
-	<a class="nav-link" href={resolve('/')}>Explore</a>
 	<a class="nav-link" data-sveltekit-reload href={resolve('/communities')}>Communities</a>
 	{#if onMap}
 		<!--

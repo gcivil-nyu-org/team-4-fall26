@@ -213,3 +213,38 @@ def test_refresh_serializes_saves_and_other_refreshes(
             cursor.execute("SELECT pg_advisory_unlock(20261029)")
             cursor.execute("DROP TRIGGER favourites_test_pause_write ON spots")
             cursor.execute("DROP FUNCTION favourites_test_pause_write()")
+
+
+@pytest.mark.parametrize("first_writer", ["save", "delete"])
+def test_owned_listing_deletion_serializes_with_favourite_saves(
+    student: Account, token: Token, first_writer: str
+) -> None:
+    owner = api.create_account("auth0|delete-owner", AccountType.BUSINESS)
+    owned = StudySpot.objects.create(
+        **{**RECORDS[0], "id": "listing:delete-race", "category": "cafe"}, owner=owner
+    )
+    # Profile synchronization must not serialize the requests on a shared username.
+    student_token = token(**{api.NAMESPACE + "username": student.username})
+    owner_token = token(sub=owner.user.username, **{api.NAMESPACE + "username": owner.username})
+    pids: Queue[int] = Queue()
+
+    def save() -> int:
+        return Client().put(f"/favourites/{owned.pk}", **bearer(student_token)).status_code
+
+    def delete() -> int:
+        return (
+            Client(raise_request_exception=False)
+            .delete(f"/listings/{owned.pk}", **bearer(owner_token))
+            .status_code
+        )
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with transaction.atomic():
+            first, following = (save, delete) if first_writer == "save" else (delete, save)
+            assert first() == 204
+            waiting = pool.submit(connected, following, pids)
+            wait_for_blocked(pids.get(timeout=10))
+        assert waiting.result(timeout=15) == (204 if first_writer == "save" else 404)
+
+    assert not StudySpot.objects.filter(pk=owned.pk).exists()
+    assert not Favourite.objects.filter(spot_id=owned.pk).exists()

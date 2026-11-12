@@ -50,14 +50,17 @@ function page(items: StudySpot[], offset = 0, hasMore = false): Response {
 function deferred<T>() {
 	return Promise.withResolvers<T>();
 }
-async function setup(answer: (method: string, url: string) => Promise<Response> | Response) {
+async function setup(
+	answer: (method: string, url: string) => Promise<Response> | Response,
+	accountAnswer: () => Promise<Response> | Response = () => json(ACCOUNT)
+) {
 	let subject: string | null = 'auth0|ada';
 	const requests: string[] = [];
 	const fetcher = (async (input: RequestInfo | URL, init: RequestInit = {}) => {
 		const url = String(input);
 		if (url === '/api/auth/config')
 			return json({ enabled: true, domain: 'x.auth0.com', client_id: 'spa', audience: 'api' });
-		if (url === '/api/account') return json(ACCOUNT);
+		if (url === '/api/account') return accountAnswer();
 		requests.push(init.method ?? 'GET');
 		return answer(init.method ?? 'GET', url);
 	}) as typeof fetch;
@@ -154,6 +157,170 @@ describe('account-scoped favourites', () => {
 		expect(favourites.items).toEqual([]);
 		expect(favourites.saved(SPOT.id)).toBe(false);
 	});
+
+	it('does not revive an older read after student eligibility is rejected', async () => {
+		const oldRead = deferred<Response>();
+		const oldReadRequested = deferred<void>();
+		const profile = deferred<Response>();
+		const profileRequested = deferred<void>();
+		let reads = 0;
+		let accounts = 0;
+		const { favourites, session } = await setup(
+			(method) => {
+				if (method !== 'GET')
+					return json(
+						{ error: { code: 'conflict', message: 'Student account required', details: [] } },
+						409
+					);
+				if (++reads === 1) return page([SPOT]);
+				oldReadRequested.resolve();
+				return oldRead.promise;
+			},
+			() => {
+				if (++accounts === 1) return json(ACCOUNT);
+				profileRequested.resolve();
+				return profile.promise;
+			}
+		);
+		await favourites.load();
+		const loading = favourites.load({ refresh: true });
+		await oldReadRequested.promise;
+		await favourites.change(SPOT, false);
+		await profileRequested.promise;
+		expect(favourites.items).toEqual([]);
+		expect(favourites.saved(SPOT.id)).toBeUndefined();
+		oldRead.resolve(page([SPOT]));
+		await loading;
+		try {
+			expect(favourites.items).toEqual([]);
+			expect(favourites.saved(SPOT.id)).toBeUndefined();
+		} finally {
+			profile.resolve(json({ ...ACCOUNT, account_type: 'business', business_name: 'Business' }));
+			await expect.poll(() => session.account?.account_type).toBe('business');
+		}
+	});
+
+	it('does not publish an earlier action after another spot rejects student eligibility', async () => {
+		const mutation = deferred<Response>();
+		const requested = deferred<void>();
+		const profile = deferred<Response>();
+		const profileRequested = deferred<void>();
+		let writes = 0;
+		let accounts = 0;
+		const { favourites, session } = await setup(
+			(method) => {
+				if (method === 'GET') return page([]);
+				if (++writes === 1) {
+					requested.resolve();
+					return mutation.promise;
+				}
+				return json(
+					{ error: { code: 'conflict', message: 'Student account required', details: [] } },
+					409
+				);
+			},
+			() => {
+				if (++accounts === 1) return json(ACCOUNT);
+				profileRequested.resolve();
+				return profile.promise;
+			}
+		);
+		await favourites.load();
+		const saving = favourites.change(SPOT, true);
+		await requested.promise;
+		await favourites.change({ ...SPOT, id: 'facdb:second' }, true);
+		await profileRequested.promise;
+		mutation.resolve(new Response(null, { status: 204 }));
+		await saving;
+		try {
+			expect(favourites.items).toEqual([]);
+			expect(favourites.saved(SPOT.id)).toBeUndefined();
+			expect(favourites.action(SPOT.id)).toBeUndefined();
+		} finally {
+			profile.resolve(json({ ...ACCOUNT, account_type: 'business', business_name: 'Business' }));
+			await expect.poll(() => session.account?.account_type).toBe('business');
+		}
+	});
+
+	it('ignores an old principal response with 401 after a new login', async () => {
+		const oldRead = deferred<Response>();
+		const requested = deferred<void>();
+		let reads = 0;
+		const { favourites, session, switchSubject } = await setup(() => {
+			if (++reads === 1) return page([SPOT]);
+			if (reads === 2) {
+				requested.resolve();
+				return oldRead.promise;
+			}
+			return page([]);
+		});
+		await favourites.load();
+		const loading = favourites.load({ refresh: true });
+		await requested.promise;
+		await session.logOut();
+		switchSubject('auth0|bea');
+		await session.finishLogIn();
+		await favourites.load();
+		oldRead.resolve(
+			json({ error: { code: 'unauthorized', message: 'Old token expired', details: [] } }, 401)
+		);
+		await loading;
+		expect(session.status).toBe('signed-in');
+		expect(session.subject).toBe('auth0|bea');
+		expect(favourites.status).toBe('ready');
+		expect(favourites.items).toEqual([]);
+		expect(favourites.saved(SPOT.id)).toBe(false);
+	});
+
+	it.each(['load', 'remove'])(
+		'ignores an obsolete %s 401 after eligibility recovery in the same login',
+		async (operation) => {
+			const oldReply = deferred<Response>();
+			const requested = deferred<void>();
+			const profileRequested = deferred<void>();
+			let reads = 0;
+			let writes = 0;
+			let accounts = 0;
+			const { favourites, session } = await setup(
+				(method) => {
+					if (method === 'GET') {
+						if (++reads === 2 && operation === 'load') {
+							requested.resolve();
+							return oldReply.promise;
+						}
+						return page([SPOT]);
+					}
+					if (++writes === 1 && operation === 'remove') {
+						requested.resolve();
+						return oldReply.promise;
+					}
+					return json(
+						{ error: { code: 'conflict', message: 'Student account required', details: [] } },
+						409
+					);
+				},
+				() => {
+					if (++accounts > 1) profileRequested.resolve();
+					return json(ACCOUNT);
+				}
+			);
+			await favourites.load();
+			const pending =
+				operation === 'load' ? favourites.load({ refresh: true }) : favourites.change(SPOT, false);
+			await requested.promise;
+			await favourites.change({ ...SPOT, id: 'facdb:second' }, true);
+			await profileRequested.promise;
+			await favourites.load({ refresh: true });
+			expect(favourites.status).toBe('ready');
+			oldReply.resolve(
+				json({ error: { code: 'unauthorized', message: 'Old token expired', details: [] } }, 401)
+			);
+			await pending;
+			expect(session.status).toBe('signed-in');
+			expect(favourites.status).toBe('ready');
+			expect(favourites.saved(SPOT.id)).toBe(true);
+		}
+	);
 
 	it.each(['load', 'remove'])(
 		'clears private state after a refused %s request',

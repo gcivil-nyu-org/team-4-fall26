@@ -10,6 +10,8 @@ OpenStreetMap  --- data/ingest.py -> data/spots.json -> Postgres -> API
 
 The snapshot holds 3,772 third places across the five boroughs: 3,509 cafés, 227 public library branches, 21 special libraries, 7 academic libraries and 8 NYU campus buildings. The city's 126 campus records are read but not published: an institution's administrative point is not a room, and access to a campus is restricted. They anchor the "near which campus" label instead. These are candidate locations, not guarantees of Wi-Fi, outlets, seating, quietness, or availability.
 
+The **Cost policy** filter offers **Any cost**, **Free**, and **Purchase required**. Free sends `no_purchase_needed=true`, excluding spots marked as requiring a purchase; Purchase required sends `no_purchase_needed=false`, showing only those spots. Any cost removes the restriction. The policy combines with search and other filters and applies to both list and map results. “Free” describes cost, not unrestricted entry: campus buildings can still require credentials.
+
 The directory intentionally stays small:
 
 - `README.md` documents the boundary, including where the records come from and what each field means.
@@ -56,4 +58,4 @@ within 60 m of a curated building and "NYU Tamiment Library" is a distinct colle
 Bobst with its own street address. See [`data/README.md`](https://github.com/gcivil-nyu-org/team-4-fall26/blob/develop/data/README.md)
 for the measurements.
 
-Study-spot database code belongs to the backend's `spots` app. Its model, migrations, and `load_spots` command live there, and nothing in `data/` talks to a database. Public spot and search data remain rebuildable projections of `spots.json`. Accounts and private favourites are not rebuildable. The loader preserves favourites for surviving IDs and removes them for absent IDs. An empty replacement removes all spots and favourites. Failed validation or writes leave spots and favourites unchanged. See [Postgres database](database.md).
+Study-spot database code belongs to the backend's `spots` app. Its model, migrations, and `load_spots` command live there, and nothing in `data/` talks to a database. Imported spot and search data remain rebuildable projections of `spots.json`. Business-owned spots, accounts, and private favourites are not rebuildable. The loader preserves favourites for surviving imported IDs and removes them for absent imported IDs. Business-owned spots and their favourites survive every imported-dataset refresh, including an empty replacement. A snapshot that collides with a business-owned ID is rejected. Failed validation or writes leave spots and favourites unchanged. See [Postgres database](database.md).

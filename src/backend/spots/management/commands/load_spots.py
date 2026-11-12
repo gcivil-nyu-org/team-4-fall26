@@ -1,7 +1,7 @@
 """Copy the normalized dataset into the serving database.
 
-``data/spots.json`` is the source of truth; the ``spots`` table is a rebuildable
-projection of it:
+``data/spots.json`` is the source of truth for imported spots. Business-owned
+listings are independent and are never replaced by a dataset refresh.
 
 .. code-block:: shell
 
@@ -142,7 +142,7 @@ def to_spot(record: Any, index: int) -> StudySpot:
 
 
 class Command(BaseCommand):
-    help = "Replace the spots table with the contents of a normalized snapshot."
+    help = "Replace the imported spots with the contents of a normalized snapshot."
 
     def add_arguments(self, parser: Any) -> None:
         parser.add_argument(
@@ -174,7 +174,7 @@ class Command(BaseCommand):
         update_fields = [
             field.name
             for field in StudySpot._meta.concrete_fields
-            if not field.primary_key and not field.generated
+            if not field.primary_key and not field.generated and field.name != "owner"
         ]
         with transaction.atomic():
             # Saves acquire ROW SHARE before writing favourites. EXCLUSIVE makes
@@ -182,7 +182,9 @@ class Command(BaseCommand):
             with connection.cursor() as cursor:
                 table = connection.ops.quote_name(StudySpot._meta.db_table)
                 cursor.execute(f"LOCK TABLE {table} IN EXCLUSIVE MODE")
-            StudySpot.objects.exclude(pk__in=identifiers).delete()
+            if StudySpot.objects.filter(owner__isnull=False, pk__in=identifiers).exists():
+                raise CommandError("Snapshot identifiers collide with business-owned study spots.")
+            StudySpot.objects.filter(owner__isnull=True).exclude(pk__in=identifiers).delete()
             StudySpot.objects.bulk_create(
                 spots,
                 batch_size=BATCH_SIZE,
@@ -191,5 +193,8 @@ class Command(BaseCommand):
                 update_fields=update_fields,
             )
 
-        written = StudySpot.objects.count()
+        # `len(spots)` rather than a table count: the delete above leaves owned
+        # listings in place, and counting the table would fold them into a
+        # number that reports what this snapshot loaded.
+        written = len(spots)
         self.stdout.write(self.style.SUCCESS(f"loaded {written} spots from {dataset}"))

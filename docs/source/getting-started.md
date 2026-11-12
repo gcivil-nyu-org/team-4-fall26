@@ -54,7 +54,7 @@ just load-data
 curl --fail 'http://localhost:7501/spots?limit=5'
 ```
 
-`just load-data` validates the snapshot and updates study spots in one transaction. Surviving IDs retain their favourites. Absent IDs lose their favourites, and an empty snapshot removes all spots and favourites. Failed loads leave both unchanged. See [Data lifecycle](database.md#data-lifecycle). Before loading data, apply the schema with `just migrate` outside Compose. Compose migrates on startup.
+`just load-data` validates the snapshot and updates imported study spots in one transaction. Surviving imported IDs retain their favourites. Absent imported IDs lose their favourites. Business-owned spots and their favourites remain unchanged, including for an empty snapshot. Invalid snapshots, owned-ID collisions, and write failures leave all data unchanged. See [Data lifecycle](database.md#data-lifecycle). Before loading data, apply the schema with `just migrate` outside Compose. Compose migrates on startup.
 
 To work on the backend without running the whole system:
 

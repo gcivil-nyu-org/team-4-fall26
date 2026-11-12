@@ -82,7 +82,7 @@ NYC Open Data -> data/ingest.py -> data/spots.json -> load_spots -> spots table
                                                                  \-> search projection
 ```
 
-`data/spots.json` is the source of truth for public study-spot fields. The `spots` table is a rebuildable projection of that snapshot. Postgres generates `search_vector` from each row. Accounts and favourites are separate, non-rebuildable data in the same database.
+`data/spots.json` is the source of truth for imported study-spot fields. Those rows are a rebuildable projection of the snapshot. Postgres generates `search_vector` from each row. Business-owned study spots, accounts, and favourites are separate, non-rebuildable data in the same database.
 
 Load or reload the local database with:
 
@@ -90,16 +90,19 @@ Load or reload the local database with:
 just load-data
 ```
 
-The `load_spots` management command validates every record and rejects duplicate IDs across the entire snapshot before writing. Inside one transaction, it takes an exclusive lock on `spots`, deletes IDs absent from the replacement, and upserts the remaining records by stable ID.
+The `load_spots` management command validates every record and rejects duplicate IDs across the entire snapshot before writing. Inside one transaction, it takes an exclusive lock on `spots`, rejects IDs that belong to business-owned spots, deletes absent imported IDs, and upserts imported records by stable ID.
 
-- Surviving IDs keep their favourite relationships and receive current display fields.
-- Absent IDs are deleted, and their favourites are removed by cascade. There is no unavailable-spot archive.
-- An empty snapshot intentionally removes all spots and their favourites.
-- Validation failures leave spots and favourites unchanged. A database write failure rolls back changes to both.
+- Surviving imported IDs keep their favourite relationships and receive current display fields.
+- Absent imported IDs are deleted, and their favourites are removed by cascade. There is no unavailable-spot archive.
+- Business-owned spots and their favourites remain unchanged, including for an empty snapshot.
+- An empty snapshot intentionally removes all imported spots and their favourites.
+- Validation failures, business-owned ID collisions, and database write failures leave spots and favourites unchanged.
 
-Loading the same snapshot again preserves existing favourites. Pass `--dataset` to load a different snapshot. Review removed IDs before loading any replacement because restoring the public records later does not recreate deleted favourites.
+Loading the same snapshot again preserves existing favourites. Pass `--dataset` to load a different snapshot. Review removed imported IDs before loading any replacement because restoring the public records later does not recreate deleted favourites.
 
 Saving locks the target spot row before creating the favourite. That lock and the loader's table lock serialize overlapping saves and refreshes. Concurrent loaders also serialize.
+
+Deleting a business-owned spot through the API locks the spot before Django collects cascading favourites. A concurrent save either commits before that cascade or waits and receives `404` after deletion.
 
 On AWS the same command runs inside a Lambda function:
 
@@ -122,4 +125,4 @@ Keep backups outside the database volume or stack being removed. Treat them as p
 
 Restore into an isolated, empty database with a compatible PostgreSQL version and required extensions. Restore the complete database state rather than combining favourites from one backup with spots or accounts from another. Check migration history, account ownership, foreign keys, and favourite counts in the restored database before switching application traffic.
 
-Stop application writes and dataset loads during a restore and traffic switch. A restore discards changes made after the backup. Reloading a different public snapshot after restore can also delete favourites for IDs that snapshot omits. Keep the feature-aware loader for any later refresh.
+Stop application writes and dataset loads during a restore and traffic switch. A restore discards changes made after the backup. Reloading a different public snapshot after restore can also delete favourites for imported IDs that snapshot omits. Keep the feature-aware loader for any later refresh.

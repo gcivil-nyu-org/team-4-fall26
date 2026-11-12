@@ -9,10 +9,11 @@ from threading import Barrier, Event
 from typing import Any
 
 import pytest
+from django.core.management.base import CommandError
 from django.db import connection, transaction
 from django.test import Client
 
-from accounts.models import Account, Favourite
+from accounts.models import Account, AccountType, Favourite
 from spots.models import StudySpot
 from spots.tests.test_load_spots import load, write_snapshot
 from spots.tests.test_spots_api import RECORDS
@@ -129,6 +130,35 @@ def test_refresh_waits_for_save_then_cascades_the_absent_spot(
         refreshing.result(timeout=15)
     assert not StudySpot.objects.filter(pk=spots[0].pk).exists()
     assert not Favourite.objects.exists()
+
+
+def test_refresh_checks_owned_identifier_collisions_after_acquiring_its_lock(
+    tmp_path: Path, student: Account, spots: list[StudySpot], token: Token
+) -> None:
+    owner = api.create_account("auth0|owner", AccountType.BUSINESS)
+    owned_record = {**RECORDS[0], "id": "listing:concurrent", "category": "cafe"}
+    snapshot = write_snapshot(
+        tmp_path,
+        [{**RECORDS[0], "name": "Refreshed"}, {**owned_record, "name": "Not the owner's name"}],
+    )
+    Favourite.objects.create(account=student, spot=spots[0])
+    access_token = token()
+    pids: Queue[int] = Queue()
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with transaction.atomic():
+            owned = StudySpot.objects.create(**owned_record, owner=owner)
+            response = Client().put(f"/favourites/{owned.pk}", **bearer(access_token))
+            assert response.status_code == 204
+            previous_spots = list(StudySpot.objects.values())
+            previous_favourites = list(Favourite.objects.values())
+            refreshing = pool.submit(connected, lambda: load(snapshot), pids)
+            wait_for_blocked(pids.get(timeout=10))
+        with pytest.raises(CommandError, match="business-owned"):
+            refreshing.result(timeout=15)
+
+    assert list(StudySpot.objects.values()) == previous_spots
+    assert list(Favourite.objects.values()) == previous_favourites
 
 
 @pytest.mark.parametrize("next_writer", ["save", "refresh"])

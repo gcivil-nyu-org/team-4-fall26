@@ -76,9 +76,9 @@ Locally the same step is `just load-data`, after `just start-db` and `just migra
 
 Search needs no separate deployed component. It is Postgres full text over a generated `tsvector` column, with `pg_trgm` similarity behind it for misspellings, so the only deployment step it requires is the migration that creates the column, the extension and their GIN indexes.
 
-Accounts and favourites are non-rebuildable user data. Backups and backward-compatible migrations are release requirements now. Use a consistent full-database backup or RDS snapshot, and restore spots, accounts, favourites, and migration history together. See [Backup and consistent restore](database.md#backup-and-consistent-restore) for retention, access, and restore requirements.
+Business-owned spots, accounts, and favourites are non-rebuildable user data. Backups and backward-compatible migrations are release requirements now. Use a consistent full-database backup or RDS snapshot, and restore spots, accounts, favourites, and migration history together. See [Backup and consistent restore](database.md#backup-and-consistent-restore) for retention, access, and restore requirements.
 
-The feature-aware loader preserves favourites when stable spot IDs survive a refresh. It deletes favourites for absent IDs. An empty replacement intentionally deletes all spots and their favourites. Validation or write failures leave both unchanged. Review the replacement dataset before running `just aws-load`.
+The feature-aware loader preserves favourites when imported spot IDs survive a refresh. It removes favourites only for imported IDs absent from the replacement. Business-owned spots and their favourites remain unchanged, including for an empty replacement. Validation errors, owned-ID collisions, and write failures leave all data unchanged. Review the replacement dataset before running `just aws-load`.
 
 The additive `accounts.0002` migration depends on `accounts.0001` and `spots.0012`. Deploy the feature-aware backend and management package, apply migrations, and then publish the favourites frontend. Take a recoverable backup before changing an existing database.
 

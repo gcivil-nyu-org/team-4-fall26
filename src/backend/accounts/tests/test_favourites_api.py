@@ -33,6 +33,7 @@ def signing_key() -> rsa.RSAPrivateKey:
 
 @pytest.fixture(autouse=True)
 def auth0(settings: Any, signing_key: rsa.RSAPrivateKey) -> None:
+    settings.ACCOUNTS_ENABLED = True
     settings.AUTH0_DOMAIN = DOMAIN
     settings.AUTH0_CLIENT_ID = "spa-client-id"
     settings.AUTH0_AUDIENCE = AUDIENCE
@@ -138,11 +139,22 @@ class TestFavouritesGate:
         assert response.status_code == 401
         assert_private(response)
 
+    @pytest.mark.parametrize(
+        ("disabled_setting", "disabled_value"),
+        [("ACCOUNTS_ENABLED", False), ("AUTH0_AUDIENCE", "")],
+    )
     @pytest.mark.parametrize(("method", "path"), OPERATIONS)
     def test_rejects_tokens_when_auth_is_disabled(
-        self, client: Any, settings: Any, token: Token, method: str, path: str
+        self,
+        client: Any,
+        settings: Any,
+        token: Token,
+        method: str,
+        path: str,
+        disabled_setting: str,
+        disabled_value: Any,
     ) -> None:
-        settings.AUTH0_AUDIENCE = ""
+        setattr(settings, disabled_setting, disabled_value)
         response = getattr(client, method)(path, **bearer(token()))
 
         assert response.status_code == 401

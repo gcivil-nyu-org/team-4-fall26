@@ -6,7 +6,7 @@ Sign-up starts on StudySpot's own page, `/signup`. It asks whether the account i
 
 StudySpot keeps an `Account` row per person, recording whether they are a student or a business owner.
 
-Accounts are optional for public browsing. With no Auth0 settings, `GET /auth/config` reports `{"enabled": false}`. The header hides login and Favourites navigation, Save and Unsave controls are hidden, and public search and spot details remain available.
+Accounts are switched off by default. Communities and chat remain open to browser-session guests (see [Communities](communities.md)). Set `STUDYSPOT_ACCOUNTS=true` alongside the Auth0 settings to turn sign-in on. While it is off, or with no Auth0 settings, `GET /auth/config` reports `{"enabled": false}` and bearer tokens are refused with a `401`. The header hides login and Favourites navigation, Save and Unsave controls are hidden, and public search and spot details remain available.
 
 ## How it fits together
 
@@ -41,7 +41,9 @@ Search results and study-spot detail pages offer **Save** and **Unsave** control
 
 When a visitor selects **Save**, an inline prompt offers login or signup. After authentication and any required account completion, the browser returns to the originating `/spots/{id}` page. The continuation survives email-verification refreshes and manual completion. It accepts only same-origin paths, belongs to the current login journey, and is cleared on logout or an unrelated journey. It never contains a saved-action instruction. The student must select **Save** again.
 
-Each account's favourites are private. The server derives ownership from the authenticated account, never from an account ID supplied by the browser. The browser uses the access token's stable subject to scope its saved state, not an email or a username. It clears that state on logout or account changes, including changes signaled by another tab. A failed action preserves the last confirmed state and offers a retry rather than reporting success.
+Each account's favourites are private. The server derives ownership from the authenticated account, never from an account ID supplied by the browser. The browser uses the access token's stable subject to scope its saved state, not an email or a username. It clears that state on logout or account changes, including changes signaled by another tab. A recoverable action failure preserves the last confirmed state and offers a retry rather than reporting success.
+
+Only an authorization failure belonging to the active favourites scope can invalidate the session. Errors from an obsolete operation do not invalidate a recovered session. An API `409` clears the favourites collection while account eligibility is rechecked. Reads and actions started before that rejection cannot restore saved state afterward, even within the same login session.
 
 The `/favourites` HTML is a prerendered shell with no personal data. The browser loads the current student's list through authenticated requests. Favourite API responses, including errors, are private and not stored in caches. See the [Favourites API](api.md#favourites) for pagination, ordering, and idempotent save and removal behavior.
 
@@ -90,6 +92,7 @@ Auth0's free plan covers this project. Do this once per team; everyone shares th
 
 | Variable | Where | Meaning |
 |---|---|---|
+| `STUDYSPOT_ACCOUNTS` | API | `true` turns sign-in on. Defaults to off, which overrides every setting below. |
 | `AUTH0_DOMAIN` | API | The tenant domain. Blank switches accounts off. |
 | `AUTH0_CLIENT_ID` | API | The SPA's Client ID. Public: the browser reads it from `GET /auth/config`. |
 | `AUTH0_AUDIENCE` | API | The API identifier from step 2. |
@@ -97,7 +100,7 @@ Auth0's free plan covers this project. Do this once per team; everyone shares th
 | `AUTH0_CLAIM_NAMESPACE` | API | Prefix of the Action's claims. Defaults to `https://studyspot.app/`. |
 | `STUDENT_EMAIL_DOMAINS` | API | Comma-separated domain suffixes a student email may end in. Defaults to `edu`. |
 
-The frontend build needs none of these: it asks the API at runtime. Locally, put them in `.env`; `docker compose` and `just dev-backend` both read it. For a deployment, set `auth0_domain`, `auth0_client_id`, `auth0_audience` and `auth0_jwks` in `infra/terraform/terraform.tfvars`:
+The frontend build needs none of these: it asks the API at runtime. Locally, put them in `.env`; `docker compose` and `just dev-backend` both read it. For a deployment, set `accounts_enabled = true` with `auth0_domain`, `auth0_client_id`, `auth0_audience` and `auth0_jwks` in `infra/terraform/terraform.tfvars`:
 
 ```shell
 curl -s https://studyspot.us.auth0.com/.well-known/jwks.json

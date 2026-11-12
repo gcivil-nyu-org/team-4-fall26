@@ -67,14 +67,13 @@ export class Favourites {
 			this.#revision = 0;
 			this.#changedAt.clear();
 		}
-		return scope;
+		return this.#owner;
 	}
 
 	#current(scope: SessionScope): boolean {
 		return (
 			this.#session.isCurrent(scope) &&
-			this.#owner?.subject === scope.subject &&
-			this.#owner.generation === scope.generation &&
+			this.#owner === scope &&
 			this.#session.account?.account_type === 'student'
 		);
 	}
@@ -90,6 +89,17 @@ export class Favourites {
 		const loading = this.#load(scope, revision);
 		this.#loading = loading;
 		return loading;
+	}
+	#rejectEligibility(scope: SessionScope, error: ApiError): void {
+		// Rebinding the same session invalidates earlier reads and actions.
+		this.#owner = { subject: scope.subject, generation: scope.generation };
+		this.#confirmed = [];
+		this.#actions = {};
+		this.#hydrated = false;
+		this.#loading = null;
+		this.#status = 'error';
+		this.#error = error.message;
+		void this.#session.refresh();
 	}
 
 	async #load(scope: SessionScope, revision: number): Promise<void> {
@@ -116,12 +126,12 @@ export class Favourites {
 			this.#hydrated = true;
 			this.#status = 'ready';
 		} catch (error) {
+			if (this.#owner !== scope) return;
 			if (error instanceof ApiError && error.status === 401) this.#session.rejectCredentials(scope);
 			if (!this.#current(scope)) return;
 			if (error instanceof ApiError && error.status === 409) {
-				this.#confirmed = [];
-				this.#hydrated = false;
-				void this.#session.refresh();
+				this.#rejectEligibility(scope, error);
+				return;
 			}
 			this.#error =
 				error instanceof ApiError
@@ -149,14 +159,11 @@ export class Favourites {
 			this.#changedAt.set(spot.id, ++this.#revision);
 			delete this.#actions[spot.id];
 		} catch (error) {
+			if (this.#owner !== scope) return;
 			if (error instanceof ApiError && error.status === 401) this.#session.rejectCredentials(scope);
 			if (!this.#current(scope)) return;
 			if (error instanceof ApiError && error.status === 409) {
-				this.#confirmed = [];
-				this.#hydrated = false;
-				this.#status = 'error';
-				this.#error = error.message;
-				void this.#session.refresh();
+				this.#rejectEligibility(scope, error);
 			}
 			this.#actions[spot.id] = {
 				desired,

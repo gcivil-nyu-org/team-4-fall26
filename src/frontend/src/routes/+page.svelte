@@ -3,6 +3,7 @@
 	// this file, which is a different thing entirely.
 	import { page as route } from '$app/state';
 	import NearControl from '$lib/NearControl.svelte';
+	import SearchBackground from '$lib/SearchBackground.svelte';
 	import SearchBar from '$lib/SearchBar.svelte';
 	import SiteHeader from '$lib/SiteHeader.svelte';
 	import SpotResults from '$lib/SpotResults.svelte';
@@ -371,6 +372,7 @@
 </svelte:head>
 
 <div class="page">
+	<SearchBackground />
 	<!--
 		`onMap` is what makes the header's Map tab a button here rather than a
 		link home: the results it switches to the map are already on this page,
@@ -379,7 +381,7 @@
 	<SiteHeader onMap={showMap} />
 
 	<main>
-		<section class="hero" class:compact={searched} aria-labelledby="hero-title">
+		<section class="hero" class:compact={searched} data-search-panel aria-labelledby="hero-title">
 			<div class="copy">
 				<p class="eyebrow">New York City</p>
 				<h1 id="hero-title">Find a place to study together.</h1>
@@ -436,7 +438,7 @@
 			was being handed every card of every result set. The count line
 			inside announces the outcome now, which is the part worth hearing.
 		-->
-		<div bind:this={results}>
+		<div class:results-panel={spots.length > 0 && status !== 'error'} bind:this={results}>
 			{#if spots.length > 0 && status !== 'error'}
 				<SpotResults
 					{spots}
@@ -455,8 +457,12 @@
 
 <style>
 	.page {
+		--site-brand-color: #fff8ed;
+		isolation: isolate;
 		min-height: 100vh;
+		min-height: 100dvh;
 		padding: 0 24px 24px;
+		background: #1d170d;
 	}
 
 	main {
@@ -466,14 +472,17 @@
 
 	.hero {
 		display: flex;
-		min-height: min(700px, calc(100vh - 100px));
+		width: min(900px, calc(100% - 48px));
+		min-height: min(590px, calc(100vh - 212px));
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 36px;
-		padding: 72px 48px 88px;
-		border-radius: 28px;
+		gap: 32px;
+		margin: clamp(24px, 4vh, 48px) auto 0;
+		padding: 42px 32px;
+		border-radius: 24px;
 		background: #f7f1eb;
+		box-shadow: 0 16px 54px rgb(0 0 0 / 32%);
 		text-align: center;
 		transition:
 			min-height 240ms ease,
@@ -483,8 +492,8 @@
 	/* Once results exist, the hero stops owning the whole viewport. */
 	.hero.compact {
 		min-height: 0;
-		gap: 32px;
-		padding: 48px 48px 56px;
+		gap: 24px;
+		padding: 28px 32px;
 	}
 
 	.hero.compact h1 {
@@ -584,21 +593,28 @@
 		color: var(--color-text);
 	}
 
+	.results-panel {
+		margin-top: 28px;
+		padding: 0 clamp(12px, 3vw, 36px);
+		border-radius: 24px;
+		background: #f7f1eb;
+	}
+
 	@media (max-width: 560px) {
 		.page {
 			padding: 0 12px 15px;
 		}
 
 		.hero {
-			min-height: calc(100vh - 112px);
-			gap: 36px;
-			padding: 48px 14px;
-			border-radius: 24px;
+			width: calc(100% - 16px);
+			min-height: calc(100vh - 172px);
+			gap: 28px;
+			padding: 28px 10px;
+			border-radius: 18px;
 		}
 
 		.hero.compact {
-			min-height: 0;
-			padding: 36px 16px 40px;
+			padding: 22px 10px;
 		}
 
 		h1 {

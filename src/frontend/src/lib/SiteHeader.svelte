@@ -101,7 +101,7 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 9px;
-		color: var(--color-brand-hover);
+		color: var(--site-brand-color, var(--color-brand-hover));
 		font-size: 20px;
 		font-weight: 750;
 		letter-spacing: -0.04em;

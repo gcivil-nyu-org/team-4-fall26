@@ -23,7 +23,11 @@ const NEIGHBORHOODS: NeighborhoodGroup[] = [
 ];
 
 function renderHome() {
-	return render(Home, { data: { neighborhoods: NEIGHBORHOODS }, params: {}, form: undefined });
+	return render(Home, {
+		data: { neighborhoods: NEIGHBORHOODS, bestSeats: [] },
+		params: {},
+		form: undefined
+	});
 }
 
 const FACETS: Facets = {

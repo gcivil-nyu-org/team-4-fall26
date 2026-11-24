@@ -35,6 +35,15 @@
 	src: url('/NewsreaderVariable-Italic.woff2') format('woff2');
 }
 
+/* Condensed display serif for the city list; OFL, see /InstrumentSerif-LICENSE.txt. */
+@font-face {
+	font-family: 'Instrument Serif';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('/InstrumentSerif-Regular.woff2') format('woff2');
+}
+
 * {
 	box-sizing: border-box;
 }

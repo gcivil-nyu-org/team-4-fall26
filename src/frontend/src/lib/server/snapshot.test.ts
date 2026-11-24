@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BOROUGHS } from '$lib/contract';
-import { allSpots, nearbySpots, neighborhoodsByBorough, spotById } from './snapshot';
+import { allSpots, bestSeats, nearbySpots, neighborhoodsByBorough, spotById } from './snapshot';
 
 describe('reading the snapshot', () => {
 	it('finds the committed file', () => {
@@ -149,5 +149,43 @@ describe('the neighborhood picker', () => {
 				[...group.neighborhoods].sort((a, b) => a.localeCompare(b))
 			);
 		}
+	});
+});
+
+describe('the best seats in each borough', () => {
+	const boroughs = bestSeats();
+
+	it('covers every borough in the contract order', () => {
+		expect(boroughs.map((group) => group.borough)).toEqual([...BOROUGHS]);
+	});
+
+	it('only picks seats that meet the rule the page states', () => {
+		for (const { borough, seats } of boroughs) {
+			for (const seat of seats) {
+				const spot = spotById(seat.id);
+				expect(spot?.borough).toBe(borough);
+				expect(spot?.no_purchase_needed).toBe(true);
+				expect(spot?.free_public_wifi).toBe(true);
+				expect(spot?.subway_step_free).toBe('full');
+			}
+		}
+	});
+
+	it('puts the nearest train first', () => {
+		for (const { seats } of boroughs) {
+			const metres = seats.map((seat) => seat.subway_metres);
+			expect(metres).toEqual([...metres].sort((a, b) => a - b));
+		}
+	});
+
+	it('never lists the same station twice in a borough', () => {
+		for (const { seats } of boroughs) {
+			const stations = seats.map((seat) => `${seat.subway_station}|${seat.subway_routes}`);
+			expect(new Set(stations).size).toBe(stations.length);
+		}
+	});
+
+	it('returns no more than it is asked for', () => {
+		for (const { seats } of bestSeats(2)) expect(seats.length).toBeLessThanOrEqual(2);
 	});
 });

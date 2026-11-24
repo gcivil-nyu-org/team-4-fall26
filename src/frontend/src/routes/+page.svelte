@@ -2,7 +2,10 @@
 	// Aliased because `page` is a local name for a page of results throughout
 	// this file, which is a different thing entirely.
 	import { page as route } from '$app/state';
+	import BestSeats from '$lib/landing/BestSeats.svelte';
+	import CardStack from '$lib/landing/CardStack.svelte';
 	import IntroStatement from '$lib/landing/IntroStatement.svelte';
+	import OtherCities from '$lib/landing/OtherCities.svelte';
 	import SessionStages from '$lib/landing/SessionStages.svelte';
 	import VisionFeelings from '$lib/landing/VisionFeelings.svelte';
 	import NearControl from '$lib/NearControl.svelte';
@@ -512,6 +515,10 @@
 		<IntroStatement />
 		<SessionStages />
 		<VisionFeelings />
+		<CardStack>
+			{#snippet under()}<BestSeats boroughs={data.bestSeats} />{/snippet}
+			{#snippet over()}<OtherCities />{/snippet}
+		</CardStack>
 	</main>
 </div>
 

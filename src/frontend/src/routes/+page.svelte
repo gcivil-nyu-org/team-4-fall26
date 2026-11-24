@@ -7,6 +7,7 @@
 	import IntroStatement from '$lib/landing/IntroStatement.svelte';
 	import OtherCities from '$lib/landing/OtherCities.svelte';
 	import SessionStages from '$lib/landing/SessionStages.svelte';
+	import SpiralCta from '$lib/landing/SpiralCta.svelte';
 	import VisionFeelings from '$lib/landing/VisionFeelings.svelte';
 	import NearControl from '$lib/NearControl.svelte';
 	import SearchBackground from '$lib/SearchBackground.svelte';
@@ -519,6 +520,7 @@
 			{#snippet under()}<BestSeats boroughs={data.bestSeats} />{/snippet}
 			{#snippet over()}<OtherCities />{/snippet}
 		</CardStack>
+		<SpiralCta />
 	</main>
 </div>
 

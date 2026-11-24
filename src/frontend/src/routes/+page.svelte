@@ -2,12 +2,18 @@
 	// Aliased because `page` is a local name for a page of results throughout
 	// this file, which is a different thing entirely.
 	import { page as route } from '$app/state';
+	import IntroStatement from '$lib/landing/IntroStatement.svelte';
+	import SessionStages from '$lib/landing/SessionStages.svelte';
+	import VisionFeelings from '$lib/landing/VisionFeelings.svelte';
 	import NearControl from '$lib/NearControl.svelte';
 	import SearchBackground from '$lib/SearchBackground.svelte';
 	import SearchBar from '$lib/SearchBar.svelte';
 	import SiteHeader from '$lib/SiteHeader.svelte';
 	import SpotResults from '$lib/SpotResults.svelte';
 	import SpotFiltersBar from '$lib/SpotFilters.svelte';
+	import type LocomotiveScroll from 'locomotive-scroll';
+	import 'locomotive-scroll/locomotive-scroll.css';
+	import { onMount } from 'svelte';
 	import {
 		ApiError,
 		DEFAULT_LIMIT,
@@ -21,6 +27,45 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+
+	onMount(() => {
+		const motion = matchMedia('(prefers-reduced-motion: reduce)');
+		let Scroll: typeof LocomotiveScroll | undefined;
+		let scroll: LocomotiveScroll | undefined;
+		let disposed = false;
+
+		function update() {
+			if (motion.matches) {
+				scroll?.destroy();
+				scroll = undefined;
+			} else if (Scroll && !scroll) {
+				scroll = new Scroll({
+					lenisOptions: { lerp: 0.1, allowNestedScroll: true }
+				});
+			}
+		}
+
+		// Locomotive caches where its elements sit and only re-measures on a
+		// window resize, but results arriving push everything below them down.
+		const layout = new ResizeObserver(() => scroll?.resize());
+		layout.observe(document.body);
+
+		motion.addEventListener('change', update);
+		void import('locomotive-scroll')
+			.then(({ default: Constructor }) => {
+				if (disposed) return;
+				Scroll = Constructor;
+				update();
+			})
+			.catch((error: unknown) => console.warn('Could not start smooth scrolling.', error));
+
+		return () => {
+			disposed = true;
+			layout.disconnect();
+			motion.removeEventListener('change', update);
+			scroll?.destroy();
+		};
+	});
 
 	type Status = 'idle' | 'searching' | 'loaded' | 'error';
 
@@ -372,102 +417,133 @@
 </svelte:head>
 
 <div class="page">
-	<SearchBackground />
 	<!--
 		`onMap` is what makes the header's Map tab a button here rather than a
 		link home: the results it switches to the map are already on this page,
 		and navigating would throw away the search that found them.
 	-->
-	<SiteHeader onMap={showMap} />
+	<div class="home-nav">
+		<SiteHeader onMap={showMap} />
+	</div>
 
 	<main>
-		<section class="hero" class:compact={searched} data-search-panel aria-labelledby="hero-title">
-			<div class="copy">
-				<p class="eyebrow">New York City</p>
-				<h1 id="hero-title">Find a place to study together.</h1>
-				<p class="description">A great study session starts with the right spot.</p>
-			</div>
+		<div class="first-scene">
+			<SearchBackground />
+			<div class="search-stage" class:browsing={!searched}>
+				<section
+					class="hero"
+					class:compact={searched}
+					data-search-panel
+					aria-labelledby="hero-title"
+				>
+					<div class="copy">
+						<p class="eyebrow">New York City</p>
+						<h1 id="hero-title">Find a place to study together.</h1>
+						<p class="description">A great study session starts with the right spot.</p>
+					</div>
 
-			<div class="search-card">
-				<SearchBar value={query} onInput={handleQueryInput} onSearch={handleSearch} />
-				<div class="search-divider" aria-hidden="true"></div>
-				<NearControl
-					neighborhoods={data.neighborhoods}
-					{near}
-					{locating}
-					notice={nearNotice}
-					onLocate={() => void handleLocate()}
-					onNeighborhood={handleNeighborhood}
-					onClear={handleClearNear}
-				/>
-				<div class="search-divider" aria-hidden="true"></div>
-				<SpotFiltersBar {facets} {filters} onChange={handleFilters} />
-			</div>
-		</section>
+					<div class="search-card">
+						<SearchBar value={query} onInput={handleQueryInput} onSearch={handleSearch} />
+						<div class="search-divider" aria-hidden="true"></div>
+						<NearControl
+							neighborhoods={data.neighborhoods}
+							{near}
+							{locating}
+							notice={nearNotice}
+							onLocate={() => void handleLocate()}
+							onNeighborhood={handleNeighborhood}
+							onClear={handleClearNear}
+						/>
+						<div class="search-divider" aria-hidden="true"></div>
+						<SpotFiltersBar {facets} {filters} onChange={handleFilters} />
+					</div>
+				</section>
 
-		<!-- aria-live so a screen reader hears the outcome without moving focus. -->
-		<div aria-live="polite">
-			{#if status === 'searching'}
-				<p class="status">Searching…</p>
-			{:else if status === 'error'}
-				<p class="status error" role="alert">{errorMessage}</p>
-			{:else if status === 'loaded' && spots.length === 0}
-				<p class="status">
-					{#if applied.query}
-						No places match <strong>{applied.query}</strong>. Try a library, a campus, or a
-						neighborhood, or clear a filter.
-					{:else}
-						No places match these filters.
+				<!-- aria-live so a screen reader hears the outcome without moving focus. -->
+				<div aria-live="polite">
+					{#if status === 'searching'}
+						<p class="status">Searching…</p>
+					{:else if status === 'error'}
+						<p class="status error" role="alert">{errorMessage}</p>
+					{:else if status === 'loaded' && spots.length === 0}
+						<p class="status">
+							{#if applied.query}
+								No places match <strong>{applied.query}</strong>. Try a library, a campus, or a
+								neighborhood, or clear a filter.
+							{:else}
+								No places match these filters.
+							{/if}
+						</p>
 					{/if}
-				</p>
-			{/if}
+				</div>
+
+				<!--
+					Outside the live region, and kept on screen while the next search is
+					in flight rather than replaced by "Searching…".
+
+					Both for the map's sake. A MapLibre instance is not free to build,
+					and unmounting the results between one query and the next would tear
+					it down and raise it again on every search -- so the pins would
+					blink out and re-frame each time someone finished typing a word. The
+					results on screen are still the answer to the last query until the
+					new one lands, which is also why the list reads better this way.
+
+					Moving it out of the live region is the other half: a screen reader
+					was being handed every card of every result set. The count line
+					inside announces the outcome now, which is the part worth hearing.
+				-->
+				<div class:results-panel={spots.length > 0 && status !== 'error'} bind:this={results}>
+					{#if spots.length > 0 && status !== 'error'}
+						<SpotResults
+							{spots}
+							{total}
+							{hasMore}
+							{loadingMore}
+							{view}
+							{distanceFrom}
+							onView={(next) => (view = next)}
+							onShowMore={handleShowMore}
+						/>
+					{/if}
+				</div>
+			</div>
 		</div>
 
-		<!--
-			Outside the live region, and kept on screen while the next search is
-			in flight rather than replaced by "Searching…".
-
-			Both for the map's sake. A MapLibre instance is not free to build,
-			and unmounting the results between one query and the next would tear
-			it down and raise it again on every search -- so the pins would
-			blink out and re-frame each time someone finished typing a word. The
-			results on screen are still the answer to the last query until the
-			new one lands, which is also why the list reads better this way.
-
-			Moving it out of the live region is the other half: a screen reader
-			was being handed every card of every result set. The count line
-			inside announces the outcome now, which is the part worth hearing.
-		-->
-		<div class:results-panel={spots.length > 0 && status !== 'error'} bind:this={results}>
-			{#if spots.length > 0 && status !== 'error'}
-				<SpotResults
-					{spots}
-					{total}
-					{hasMore}
-					{loadingMore}
-					{view}
-					{distanceFrom}
-					onView={(next) => (view = next)}
-					onShowMore={handleShowMore}
-				/>
-			{/if}
-		</div>
+		<IntroStatement />
+		<SessionStages />
+		<VisionFeelings />
 	</main>
 </div>
 
 <style>
 	.page {
+		--home-gutter: 24px;
+		--home-header-height: 76px;
 		--site-brand-color: #fff8ed;
 		isolation: isolate;
 		min-height: 100vh;
 		min-height: 100dvh;
-		padding: 0 24px 24px;
 		background: #1d170d;
 	}
 
-	main {
-		width: min(1180px, 100%);
+	.home-nav {
+		padding-inline: var(--home-gutter);
+	}
+
+	.first-scene {
+		position: relative;
+	}
+
+	.search-stage {
+		display: flow-root;
+		width: min(1180px, calc(100% - 2 * var(--home-gutter)));
 		margin: 0 auto;
+		padding-bottom: var(--home-gutter);
+	}
+
+	.search-stage.browsing {
+		min-height: calc(100vh - var(--home-header-height));
+		min-height: calc(100svh - var(--home-header-height));
 	}
 
 	.hero {
@@ -600,9 +676,15 @@
 		background: #f7f1eb;
 	}
 
+	@media (max-width: 740px) {
+		.page {
+			--home-header-height: 56px;
+		}
+	}
+
 	@media (max-width: 560px) {
 		.page {
-			padding: 0 12px 15px;
+			--home-gutter: 12px;
 		}
 
 		.hero {

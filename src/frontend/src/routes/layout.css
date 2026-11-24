@@ -18,6 +18,23 @@
 	background: #ffffff;
 }
 
+/* Display serif for the landing statements; OFL, see /Newsreader-LICENSE.txt. */
+@font-face {
+	font-family: Newsreader;
+	font-style: normal;
+	font-weight: 200 800;
+	font-display: swap;
+	src: url('/NewsreaderVariable.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: Newsreader;
+	font-style: italic;
+	font-weight: 200 800;
+	font-display: swap;
+	src: url('/NewsreaderVariable-Italic.woff2') format('woff2');
+}
+
 * {
 	box-sizing: border-box;
 }

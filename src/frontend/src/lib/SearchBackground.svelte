@@ -24,7 +24,6 @@
 		return { x, y };
 	}
 
-
 	let canvas: HTMLCanvasElement;
 	let ready = $state(false);
 	let playing = $state(true);
@@ -42,6 +41,7 @@
 		let frame = 0;
 		let lastDraw = 0;
 		let time = 0;
+		let inView = true;
 
 		function draw(delta: number) {
 			let stroke: Stroke | undefined;
@@ -84,7 +84,7 @@
 			leave();
 			renderer.clearWake();
 			renderer.draw(time, 0);
-			if (playing && !document.hidden) frame = requestAnimationFrame(tick);
+			if (playing && inView && !document.hidden) frame = requestAnimationFrame(tick);
 		}
 
 		function resize() {
@@ -95,10 +95,14 @@
 		}
 
 		function move(event: PointerEvent) {
-			if (!playing || event.pointerType === 'touch') return;
+			if (!playing || !inView || event.pointerType === 'touch') return;
 			const bounds = canvas.getBoundingClientRect();
 			const x = event.clientX - bounds.left;
 			const y = event.clientY - bounds.top;
+			if (x < 0 || x > bounds.width || y < 0 || y > bounds.height) {
+				leave();
+				return;
+			}
 			const visible = visiblePoint(x, y, panel.getBoundingClientRect(), bounds);
 			pointer = {
 				raw: { x, y: bounds.height - y },
@@ -117,6 +121,11 @@
 		};
 		const size = new ResizeObserver(resize);
 		size.observe(canvas);
+		const visibility = new IntersectionObserver(([entry]) => {
+			inView = entry.isIntersecting;
+			syncAnimation();
+		});
+		visibility.observe(canvas);
 		window.addEventListener('pointermove', move, { capture: true, passive: true });
 		document.documentElement.addEventListener('pointerleave', leave);
 		document.addEventListener('visibilitychange', syncAnimation);
@@ -127,6 +136,7 @@
 		return () => {
 			cancelAnimationFrame(frame);
 			size.disconnect();
+			visibility.disconnect();
 			window.removeEventListener('pointermove', move, true);
 			document.documentElement.removeEventListener('pointerleave', leave);
 			document.removeEventListener('visibilitychange', syncAnimation);
@@ -143,19 +153,20 @@
 
 <style>
 	canvas {
-		position: fixed;
+		position: absolute;
 		z-index: -1;
-		inset: 0;
+		top: calc(-1 * var(--home-header-height));
+		left: 0;
 		width: 100%;
-		height: 100%;
+		height: min(calc(100% + var(--home-header-height)), 100svh);
 		pointer-events: none;
 	}
 
 	.motion-control {
-		position: fixed;
+		position: absolute;
 		z-index: 1;
+		top: calc(min(100%, 100svh - var(--home-header-height)) - 44px);
 		right: max(12px, env(safe-area-inset-right));
-		bottom: max(12px, env(safe-area-inset-bottom));
 		padding: 8px 13px;
 		border: 1px solid #947961;
 		border-radius: 999px;

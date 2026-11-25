@@ -47,11 +47,17 @@
 			-->
 		<a class="nav-link" href="{resolve('/')}?view=map">Map</a>
 	{/if}
+	<!-- Community messages are open to any signed-in account. -->
 	{#if session.status === 'signed-in'}
-		<a class="nav-link" href={resolve('/favourites')}>Favourites</a>
 		<a class="nav-link" href={resolve('/messages')}>Messages</a>
 	{/if}
+	<!--
+			Both are for students alone: favourites are private to the account
+			that saved them, and the directory lists students. A business
+			account is shown neither.
+		-->
 	{#if session.status === 'signed-in' && session.account?.account_type === 'student'}
+		<a class="nav-link" href={resolve('/favourites')}>Favourites</a>
 		<a class="nav-link" href={resolve('/people')}>People</a>
 	{/if}
 	<!--

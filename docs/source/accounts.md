@@ -39,13 +39,23 @@ Only completed student accounts can save, list, or remove favourites. The API ch
 
 Search results and study-spot detail pages offer **Save** and **Unsave** controls. On result cards, these controls sit beside the spot title, separate from the **Maps** and **Share** actions below. Completed students also have a **Favourites** page at `/favourites`, with removal controls and list/map views of their saved spots. Business accounts have no favourites controls.
 
-When a visitor selects **Save**, an inline prompt offers login or signup. After authentication and any required account completion, the browser returns to the originating `/spots/{id}` page. The continuation survives email-verification refreshes and manual completion. It accepts only same-origin paths, belongs to the current login journey, and is cleared on logout or an unrelated journey. It never contains a saved-action instruction. The student must select **Save** again.
+When a visitor selects **Save**, an inline prompt offers login or signup. After authentication and any required account completion, the browser returns to the originating spot page. The continuation survives email-verification refreshes and manual completion. It accepts only same-origin paths, belongs to the current login journey, and is cleared on logout or an unrelated journey. It never contains a saved-action instruction. The student must select **Save** again.
 
 Each account's favourites are private. The server derives ownership from the authenticated account, never from an account ID supplied by the browser. The browser uses the access token's stable subject to scope its saved state, not an email or a username. It clears that state on logout or account changes, including changes signaled by another tab. A recoverable action failure preserves the last confirmed state and offers a retry rather than reporting success.
 
 Only an authorization failure belonging to the active favourites scope can invalidate the session. Errors from an obsolete operation do not invalidate a recovered session. An API `409` clears the favourites collection while account eligibility is rechecked. Reads and actions started before that rejection cannot restore saved state afterward, even within the same login session.
 
 The `/favourites` HTML is a prerendered shell with no personal data. The browser loads the current student's list through authenticated requests. Favourite API responses, including errors, are private and not stored in caches. See the [Favourites API](api.md#favourites) for pagination, ordering, and idempotent save and removal behavior.
+
+## Reviews and ratings
+
+Open a spot's **Reviews** section to see its overall rating and review count. Select **Show more** to read older reviews. You can read reviews without signing in.
+
+Students can select **Write a review** and give the spot an overall score. Aspect scores and text are optional. Use **Your review** to edit or delete your own review, even if it is not on the first page.
+
+Business owners can open **Account**, then select a spot under **Your listings** to read its reviews. The current owner can post, edit, or remove one public reply under each review of the listing. Imported spots have no listing owner and cannot receive an owner reply.
+
+See the [Reviews API](api.md#reviews) for rating, reply, and access rules.
 
 ## Setting up Auth0
 
@@ -103,8 +113,13 @@ Auth0's free plan covers this project. Do this once per team; everyone shares th
 The frontend build needs none of these: it asks the API at runtime. Locally, put them in `.env`; `docker compose` and `just dev-backend` both read it. For a deployment, set `accounts_enabled = true` with `auth0_domain`, `auth0_client_id`, `auth0_audience` and `auth0_jwks` in `infra/terraform/terraform.tfvars`:
 
 ```shell
-curl -s https://studyspot.us.auth0.com/.well-known/jwks.json
+curl -s https://studyspot.us.auth0.com/.well-known/jwks.json | \
+  python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({"keys": [{k: v for k, v in key.items() if k not in ("x5c", "x5t")} for key in d["keys"]]}, separators=(",", ":")))'
 ```
+
+Strip `x5c` and `x5t`, as that pipeline does, rather than pasting the document whole. Lambda caps a whole `UpdateFunctionConfiguration` request at 5,120 bytes, environment variables included, and a tenant that has rotated its signing key serves a JWKS of about 4.6 KB -- nearly all of it the X.509 certificate chain in `x5c`. Pasting it verbatim fails the apply with `RequestEntityTooLargeException`, which names the request size and not the variable that caused it.
+
+Dropping those two members is lossless here. PyJWT builds an RSA key from `n` and `e`, and has no reference to `x5c` or `x5t` anywhere, so every key still resolves; the document comes down to roughly 1.3 KB.
 
 Auth0 changes these keys only when someone rotates the signing key in the dashboard. If that happens, re-apply with the new document, or every log-in will be refused with a 401.
 

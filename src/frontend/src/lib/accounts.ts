@@ -116,6 +116,23 @@ export function listOwnedListings(
 	return authenticatedRequest('/api/listings', credentials, {}, fetcher);
 }
 
+/**
+ * Delete one of the caller's listings, with its reviews, their replies and
+ * students' saves of it. A listing that is gone or not the caller's is a 404.
+ */
+export function deleteListing(
+	credentials: Credentials,
+	id: string,
+	fetcher: Fetcher = globalThis.fetch
+): Promise<void> {
+	return authenticatedRequest(
+		`/api/listings/${encodeURIComponent(id)}`,
+		credentials,
+		{ method: 'DELETE' },
+		fetcher
+	);
+}
+
 /** Whether a username is free, and if not, why, from `GET /usernames/{name}`. */
 export function checkUsername(
 	username: string,

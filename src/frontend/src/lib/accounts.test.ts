@@ -3,6 +3,7 @@ import { ApiError } from './api';
 import {
 	checkUsername,
 	completeSignUp,
+	deleteListing,
 	displayName,
 	fetchAccount,
 	fetchAuthConfig
@@ -122,6 +123,21 @@ describe('completeSignUp', () => {
 
 		expect(failure).toBeInstanceOf(ApiError);
 		expect((failure as ApiError).details).toEqual(details);
+	});
+});
+
+describe('deleteListing', () => {
+	it('deletes the listing by its escaped id, with the bearer token', async () => {
+		const { calls, fetcher } = recording(() => new Response(null, { status: 204 }));
+
+		await expect(deleteListing({ access: 'token' }, 'listing:a b', fetcher)).resolves.toBe(
+			undefined
+		);
+
+		expect(calls).toHaveLength(1);
+		expect(calls[0].path).toBe('/api/listings/listing%3Aa%20b');
+		expect(calls[0].init.method).toBe('DELETE');
+		expect(new Headers(calls[0].init.headers).get('authorization')).toBe('Bearer token');
 	});
 });
 

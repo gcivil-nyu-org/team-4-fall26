@@ -1,15 +1,22 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { untrack } from 'svelte';
-	import { listOwnedListings } from './accounts';
-	import { ApiError } from './api';
+	import { deleteListing, listOwnedListings } from './accounts';
+	import { ApiError, type Fetcher } from './api';
 	import type { StudySpot } from './contract';
 	import type { Session, SessionScope } from './session.svelte';
 	import { place, spotPath } from './spot';
 
-	let { session }: { session: Session } = $props();
+	/** `fetcher` is replaceable so a test can answer the listing routes. */
+	let { session, fetcher }: { session: Session; fetcher?: Fetcher } = $props();
 	type Listings = { kind: 'loading' | 'error' } | { kind: 'ready'; items: StudySpot[] };
-	let state = $state<Listings>({ kind: 'loading' });
+	/** At most one listing is being confirmed or deleted at a time. */
+	type Removal = { kind: 'idle' } | { kind: 'confirming' | 'deleting'; id: string };
+	let listings = $state<Listings>({ kind: 'loading' });
+	let removal = $state<Removal>({ kind: 'idle' });
+	/** The listing whose last delete failed, kept in the list with an error. */
+	let failedId = $state<string | null>(null);
+	let notice = $state('');
 	let request = 0;
 	$effect(() => {
 		const scope = session.scope;
@@ -21,25 +28,57 @@
 
 	async function load(scope: SessionScope): Promise<void> {
 		const sequence = ++request;
-		state = { kind: 'loading' };
+		listings = { kind: 'loading' };
 		try {
 			const credentials = await session.credentialsFor(scope);
 			if (sequence !== request || !session.isCurrent(scope)) return;
-			const { items } = await listOwnedListings(credentials);
-			if (sequence === request && session.isCurrent(scope)) state = { kind: 'ready', items };
+			const { items } = await listOwnedListings(credentials, fetcher);
+			if (sequence === request && session.isCurrent(scope)) listings = { kind: 'ready', items };
 		} catch (error) {
 			if (sequence !== request || !session.isCurrent(scope)) return;
 			if (error instanceof ApiError && error.status === 401) session.rejectCredentials(scope);
-			else state = { kind: 'error' };
+			else listings = { kind: 'error' };
+		}
+	}
+
+	function drop(id: string, message: string): void {
+		if (listings.kind === 'ready')
+			listings = { kind: 'ready', items: listings.items.filter((spot) => spot.id !== id) };
+		notice = message;
+	}
+
+	async function remove(spot: StudySpot): Promise<void> {
+		const scope = session.scope;
+		if (!scope || removal.kind === 'deleting') return;
+		removal = { kind: 'deleting', id: spot.id };
+		failedId = null;
+		notice = '';
+		try {
+			const credentials = await session.credentialsFor(scope);
+			if (!session.isCurrent(scope)) return;
+			await deleteListing(credentials, spot.id, fetcher);
+			if (session.isCurrent(scope)) drop(spot.id, `Deleted ${spot.name}.`);
+		} catch (error) {
+			if (!session.isCurrent(scope)) return;
+			// A 404 means the server has no such listing of ours any more, so it
+			// leaves the list the same way a successful delete does.
+			if (error instanceof ApiError && error.status === 404) drop(spot.id, 'Already deleted.');
+			else if (error instanceof ApiError && error.status === 401) session.rejectCredentials(scope);
+			else failedId = spot.id;
+		} finally {
+			if (session.isCurrent(scope)) removal = { kind: 'idle' };
 		}
 	}
 </script>
 
 <section aria-labelledby="owned-listings-title">
 	<h2 id="owned-listings-title">Your listings</h2>
-	{#if state.kind === 'loading'}
+	{#if notice}
+		<p role="status">{notice}</p>
+	{/if}
+	{#if listings.kind === 'loading'}
 		<p role="status">Loading your listings…</p>
-	{:else if state.kind === 'error'}
+	{:else if listings.kind === 'error'}
 		<p role="alert">Could not load your listings.</p>
 		<button
 			type="button"
@@ -50,17 +89,57 @@
 		>
 			Try again
 		</button>
-	{:else if state.kind === 'ready'}
-		{#if state.items.length === 0}
+	{:else if listings.kind === 'ready'}
+		{#if listings.items.length === 0}
 			<p>No listings yet.</p>
 		{:else}
 			<ul>
-				{#each state.items as spot (spot.id)}
-					<li>
+				{#each listings.items as spot (spot.id)}
+					<li aria-label={spot.name}>
 						<a href={resolve(`${spotPath(spot.id)}#reviews` as '/')}>
 							<strong>{spot.name}</strong>
 							<span>{place(spot)} · Read reviews</span>
 						</a>
+						{#if failedId === spot.id}
+							<p role="alert" class="error">Could not delete this listing. Please try again.</p>
+						{/if}
+						{#if removal.kind !== 'idle' && removal.id === spot.id}
+							<p class="confirm">
+								Delete {spot.name}? This also deletes its reviews, the replies to them, and
+								students’ saves of it, and cannot be undone.
+							</p>
+							<div class="actions">
+								<button
+									type="button"
+									class="danger"
+									disabled={removal.kind === 'deleting'}
+									onclick={() => void remove(spot)}
+								>
+									{removal.kind === 'deleting' ? 'Deleting…' : 'Confirm delete'}
+								</button>
+								<button
+									type="button"
+									disabled={removal.kind === 'deleting'}
+									onclick={() => (removal = { kind: 'idle' })}
+								>
+									Cancel
+								</button>
+							</div>
+						{:else}
+							<div class="actions">
+								<button
+									type="button"
+									disabled={removal.kind === 'deleting'}
+									onclick={() => {
+										removal = { kind: 'confirming', id: spot.id };
+										failedId = null;
+										notice = '';
+									}}
+								>
+									Delete
+								</button>
+							</div>
+						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -83,6 +162,7 @@
 		font-size: 0.875rem;
 	}
 	li {
+		padding-block-end: 12px;
 		border-block-start: 1px solid var(--color-border);
 	}
 	a {
@@ -93,7 +173,7 @@
 		overflow-wrap: anywhere;
 	}
 	a:hover strong,
-	button:hover {
+	button:hover:enabled {
 		text-decoration: underline;
 	}
 	button {
@@ -101,5 +181,26 @@
 		color: var(--color-brand-hover);
 		font-weight: 650;
 		cursor: pointer;
+	}
+	button:disabled {
+		cursor: progress;
+		opacity: 0.6;
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 16px;
+	}
+	.danger {
+		text-decoration: underline;
+	}
+	.confirm {
+		color: var(--color-text);
+		overflow-wrap: anywhere;
+	}
+	.error {
+		color: var(--color-brand-hover);
+		font-weight: 600;
 	}
 </style>

@@ -54,6 +54,17 @@ describe('locate', () => {
 		expect(await locate(fake)).toEqual({ kind: 'unavailable' });
 	});
 
+	it('asks with the caller’s own options when given them', async () => {
+		const { fake, asked } = geolocation((success) =>
+			success({ coords: { latitude: 40.7295, longitude: -73.9965 } } as GeolocationPosition)
+		);
+		const precise = { enableHighAccuracy: true, timeout: 1_000, maximumAge: 0 };
+
+		await locate(fake, precise);
+
+		expect(asked).toEqual([precise]);
+	});
+
 	it('reports a browser without the API as unsupported', async () => {
 		expect(await locate(undefined)).toEqual({ kind: 'unsupported' });
 	});

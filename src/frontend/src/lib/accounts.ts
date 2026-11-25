@@ -6,7 +6,15 @@
  */
 
 import { ApiError, isErrorEnvelope, type Fetcher } from './api';
-import type { Account, AuthConfig, CompleteSignUp, StudySpot, UsernameCheck } from './contract';
+import type {
+	Account,
+	AuthConfig,
+	CompleteSignUp,
+	ListingChanges,
+	ListingDraft,
+	StudySpot,
+	UsernameCheck
+} from './contract';
 
 async function request<T>(path: string, init: RequestInit, fetcher: Fetcher): Promise<T> {
 	let response: Response;
@@ -114,6 +122,52 @@ export function listOwnedListings(
 	fetcher: Fetcher = globalThis.fetch
 ): Promise<{ items: StudySpot[] }> {
 	return authenticatedRequest('/api/listings', credentials, {}, fetcher);
+}
+
+/** Create a listing owned by the caller's business account; answers the new spot. */
+export function createListing(
+	credentials: Credentials,
+	draft: ListingDraft,
+	fetcher: Fetcher = globalThis.fetch
+): Promise<StudySpot> {
+	return authenticatedRequest(
+		'/api/listings',
+		credentials,
+		{ method: 'POST', body: draft },
+		fetcher
+	);
+}
+
+/** Change some fields of one of the caller's listings; answers the listing as it now is. */
+export function updateListing(
+	credentials: Credentials,
+	id: string,
+	changes: ListingChanges,
+	fetcher: Fetcher = globalThis.fetch
+): Promise<StudySpot> {
+	return authenticatedRequest(
+		`/api/listings/${encodeURIComponent(id)}`,
+		credentials,
+		{ method: 'PATCH', body: changes },
+		fetcher
+	);
+}
+
+/**
+ * Delete one of the caller's listings, with its reviews, their replies and
+ * students' saves of it. A listing that is gone or not the caller's is a 404.
+ */
+export function deleteListing(
+	credentials: Credentials,
+	id: string,
+	fetcher: Fetcher = globalThis.fetch
+): Promise<void> {
+	return authenticatedRequest(
+		`/api/listings/${encodeURIComponent(id)}`,
+		credentials,
+		{ method: 'DELETE' },
+		fetcher
+	);
 }
 
 /** Whether a username is free, and if not, why, from `GET /usernames/{name}`. */

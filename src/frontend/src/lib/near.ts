@@ -38,9 +38,14 @@ export const LOCATE_OPTIONS: PositionOptions = {
  *
  * `geolocation` is passed in rather than read from `navigator`, so the caller
  * owns the browser dependency and a test can hand over a fake. It is
- * `undefined` where the browser has no Geolocation API at all.
+ * `undefined` where the browser has no Geolocation API at all. `options`
+ * defaults to the coarse, cached request "Near me" wants; a caller that needs
+ * the exact spot, such as a business placing its listing, passes its own.
  */
-export function locate(geolocation: Geolocation | undefined): Promise<Located> {
+export function locate(
+	geolocation: Geolocation | undefined,
+	options: PositionOptions = LOCATE_OPTIONS
+): Promise<Located> {
 	if (geolocation === undefined) return Promise.resolve({ kind: 'unsupported' });
 
 	return new Promise((settle) => {
@@ -55,7 +60,7 @@ export function locate(geolocation: Geolocation | undefined): Promise<Located> {
 				// Insecure origins are refused with PERMISSION_DENIED too, which is
 				// right: the remedy is the same, the browser will not say where.
 				settle({ kind: failure.code === failure.PERMISSION_DENIED ? 'denied' : 'unavailable' }),
-			LOCATE_OPTIONS
+			options
 		);
 	});
 }

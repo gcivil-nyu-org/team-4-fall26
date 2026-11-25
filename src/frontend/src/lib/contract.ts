@@ -272,6 +272,29 @@ export type ReviewDraft = {
 	body: string;
 };
 
+/** The only category `POST /listings` accepts. */
+export const LISTING_CATEGORY = 'cafe';
+
+/**
+ * What a business may write about its own listing, for `POST /listings`.
+ *
+ * Optional text is `null` rather than `""`, which the API refuses, and the
+ * nullable booleans are `null` when the owner has not said either way.
+ */
+export type ListingDraft = {
+	name: string;
+	category: typeof LISTING_CATEGORY;
+	address: string | null;
+	neighborhood: string | null;
+	borough: Borough;
+	latitude: number;
+	longitude: number;
+	no_purchase_needed: boolean;
+	indoor_seating: boolean | null;
+	venue_wifi: boolean | null;
+	opening_hours: string | null;
+};
+
 /** Newest first: by descending creation time, then descending review ID. */
 export type ReviewPage = {
 	items: Review[];

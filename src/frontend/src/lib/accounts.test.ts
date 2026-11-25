@@ -3,12 +3,13 @@ import { ApiError } from './api';
 import {
 	checkUsername,
 	completeSignUp,
+	createListing,
 	deleteListing,
 	displayName,
 	fetchAccount,
 	fetchAuthConfig
 } from './accounts';
-import type { Account } from './contract';
+import type { Account, ListingDraft } from './contract';
 
 const ACCOUNT: Account = {
 	email: 'ada@nyu.edu',
@@ -123,6 +124,33 @@ describe('completeSignUp', () => {
 
 		expect(failure).toBeInstanceOf(ApiError);
 		expect((failure as ApiError).details).toEqual(details);
+	});
+});
+
+describe('createListing', () => {
+	it('posts the draft as JSON and answers the new spot', async () => {
+		const draft: ListingDraft = {
+			name: 'Quiet Corner Cafe',
+			category: 'cafe',
+			address: null,
+			neighborhood: null,
+			borough: 'Manhattan',
+			latitude: 40.7259,
+			longitude: -73.9946,
+			no_purchase_needed: false,
+			indoor_seating: true,
+			venue_wifi: null,
+			opening_hours: null
+		};
+		const { calls, fetcher } = recording(() => json({ id: 'listing:new', ...draft }, 201));
+
+		const spot = await createListing({ access: 'token' }, draft, fetcher);
+
+		expect(spot.id).toBe('listing:new');
+		expect(calls[0].path).toBe('/api/listings');
+		expect(calls[0].init.method).toBe('POST');
+		expect(JSON.parse(String(calls[0].init.body))).toEqual(draft);
+		expect(new Headers(calls[0].init.headers).get('authorization')).toBe('Bearer token');
 	});
 });
 

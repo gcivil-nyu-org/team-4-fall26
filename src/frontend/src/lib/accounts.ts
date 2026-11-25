@@ -6,7 +6,14 @@
  */
 
 import { ApiError, isErrorEnvelope, type Fetcher } from './api';
-import type { Account, AuthConfig, CompleteSignUp, StudySpot, UsernameCheck } from './contract';
+import type {
+	Account,
+	AuthConfig,
+	CompleteSignUp,
+	ListingDraft,
+	StudySpot,
+	UsernameCheck
+} from './contract';
 
 async function request<T>(path: string, init: RequestInit, fetcher: Fetcher): Promise<T> {
 	let response: Response;
@@ -114,6 +121,20 @@ export function listOwnedListings(
 	fetcher: Fetcher = globalThis.fetch
 ): Promise<{ items: StudySpot[] }> {
 	return authenticatedRequest('/api/listings', credentials, {}, fetcher);
+}
+
+/** Create a listing owned by the caller's business account; answers the new spot. */
+export function createListing(
+	credentials: Credentials,
+	draft: ListingDraft,
+	fetcher: Fetcher = globalThis.fetch
+): Promise<StudySpot> {
+	return authenticatedRequest(
+		'/api/listings',
+		credentials,
+		{ method: 'POST', body: draft },
+		fetcher
+	);
 }
 
 /**

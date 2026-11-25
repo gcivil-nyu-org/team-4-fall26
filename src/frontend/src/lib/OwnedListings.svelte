@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { untrack } from 'svelte';
-	import { deleteListing, listOwnedListings } from './accounts';
+	import { createListing, deleteListing, listOwnedListings } from './accounts';
 	import { ApiError, type Fetcher } from './api';
-	import type { StudySpot } from './contract';
+	import type { ListingDraft, StudySpot } from './contract';
+	import ListingForm from './ListingForm.svelte';
+	import type { SubmitResult } from './listing';
 	import type { Session, SessionScope } from './session.svelte';
 	import { place, spotPath } from './spot';
 
@@ -17,6 +19,7 @@
 	/** The listing whose last delete failed, kept in the list with an error. */
 	let failedId = $state<string | null>(null);
 	let notice = $state('');
+	let adding = $state(false);
 	let request = 0;
 	$effect(() => {
 		const scope = session.scope;
@@ -69,6 +72,46 @@
 			if (session.isCurrent(scope)) removal = { kind: 'idle' };
 		}
 	}
+
+	/**
+	 * Where a new listing goes: before the first one whose name sorts after it,
+	 * as `GET /listings` orders them, so the list reads the same after a reload.
+	 */
+	function inserted(items: StudySpot[], spot: StudySpot): StudySpot[] {
+		const at = items.findIndex((item) => item.name.localeCompare(spot.name) > 0);
+		return at === -1 ? [...items, spot] : [...items.slice(0, at), spot, ...items.slice(at)];
+	}
+
+	const CREATE_FAILED: SubmitResult = {
+		kind: 'failed',
+		message: 'Could not add this listing. Please try again.',
+		details: []
+	};
+
+	async function create(draft: ListingDraft): Promise<SubmitResult> {
+		const scope = session.scope;
+		if (!scope) return CREATE_FAILED;
+		try {
+			const credentials = await session.credentialsFor(scope);
+			if (!session.isCurrent(scope)) return CREATE_FAILED;
+			const spot = await createListing(credentials, draft, fetcher);
+			if (!session.isCurrent(scope)) return CREATE_FAILED;
+			if (listings.kind === 'ready')
+				listings = { kind: 'ready', items: inserted(listings.items, spot) };
+			adding = false;
+			notice = `Added ${spot.name}.`;
+			return { kind: 'saved' };
+		} catch (error) {
+			if (!(error instanceof ApiError)) return CREATE_FAILED;
+			// Signing out replaces this whole section, form and all.
+			if (error.status === 401) session.rejectCredentials(scope);
+			// The API's own words for a refusal it explains: invalid fields, or
+			// an account that may not manage listings.
+			if (error.status === 422 || error.status === 403)
+				return { kind: 'failed', message: error.message, details: error.details };
+			return CREATE_FAILED;
+		}
+	}
 </script>
 
 <section aria-labelledby="owned-listings-title">
@@ -90,6 +133,19 @@
 			Try again
 		</button>
 	{:else if listings.kind === 'ready'}
+		{#if adding}
+			<ListingForm onSubmit={create} onCancel={() => (adding = false)} />
+		{:else}
+			<button
+				type="button"
+				onclick={() => {
+					adding = true;
+					notice = '';
+				}}
+			>
+				Add a listing
+			</button>
+		{/if}
 		{#if listings.items.length === 0}
 			<p>No listings yet.</p>
 		{:else}

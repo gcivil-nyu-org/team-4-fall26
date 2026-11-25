@@ -62,10 +62,15 @@ function failure(status: number): Response {
 /**
  * A signed-in business session, and the listing routes it talks to.
  *
- * `onDelete` answers each `DELETE /listings/{id}`; every request the listing
- * routes see is recorded as `METHOD path`.
+ * `onDelete` answers each `DELETE /listings/{id}` and `onPost` each
+ * `POST /listings`; every request the listing routes see is recorded as
+ * `METHOD path`, and every body posted is kept.
  */
-async function setup(onDelete: () => Promise<Response> | Response) {
+async function setup(
+	onDelete: () => Promise<Response> | Response,
+	onPost: (body: Record<string, unknown>) => Response = (body) =>
+		json({ ...SPOT, ...body, id: 'listing:new' }, 201)
+) {
 	const client = {
 		checkSession: async () => {},
 		isAuthenticated: async () => true,
@@ -86,17 +91,23 @@ async function setup(onDelete: () => Promise<Response> | Response) {
 
 	const requests: string[] = [];
 	const headers: Headers[] = [];
+	const posted: Record<string, unknown>[] = [];
 	const fetcher = (async (input: RequestInfo | URL, init: RequestInit = {}) => {
 		const method = init.method ?? 'GET';
 		requests.push(`${method} ${String(input)}`);
 		headers.push(new Headers(init.headers));
 		if (method === 'DELETE') return onDelete();
+		if (method === 'POST') {
+			const body = JSON.parse(String(init.body));
+			posted.push(body);
+			return onPost(body);
+		}
 		return json({ items: [SPOT, OTHER] });
 	}) as typeof fetch;
 
 	render(OwnedListings, { session, fetcher });
 	await expect.element(page.getByRole('link', { name: /Grumpy Coffee/ })).toBeVisible();
-	return { session, requests, headers };
+	return { session, requests, headers, posted };
 }
 
 const item = (name: string) => page.getByRole('listitem', { name });
@@ -178,6 +189,108 @@ describe('deleting a listing', () => {
 
 		await item('Grumpy Coffee').getByRole('button', { name: 'Delete' }).click();
 		await page.getByRole('button', { name: 'Confirm delete' }).click();
+
+		await expect.poll(() => session.status).toBe('signed-out');
+	});
+});
+
+/** Open the form and fill in what it needs, pasting the coordinates. */
+async function fillForm(name: string): Promise<void> {
+	await page.getByRole('button', { name: 'Add a listing' }).click();
+	await page.getByRole('textbox', { name: 'Name', exact: true }).fill(name);
+	await page.getByRole('combobox', { name: 'Borough' }).selectOptions('Brooklyn');
+	await page.getByRole('textbox', { name: 'Coordinates' }).fill('40.6782, -73.9442');
+	await page.getByRole('group', { name: 'Indoor seating' }).getByLabelText('Yes').click();
+}
+
+describe('adding a listing', () => {
+	it('sends the draft and shows the new listing in name order', async () => {
+		const { posted } = await setup(() => failure(500));
+
+		await fillForm('Midtown Beans');
+		await page.getByRole('button', { name: 'Add listing' }).click();
+
+		await expect.element(page.getByRole('status')).toHaveTextContent('Added Midtown Beans.');
+		await expect.element(page.getByRole('form', { name: 'Add a listing' })).not.toBeInTheDocument();
+		expect(posted).toEqual([
+			{
+				name: 'Midtown Beans',
+				category: 'cafe',
+				address: null,
+				neighborhood: null,
+				borough: 'Brooklyn',
+				latitude: 40.6782,
+				longitude: -73.9442,
+				no_purchase_needed: false,
+				indoor_seating: true,
+				venue_wifi: null,
+				opening_hours: null
+			}
+		]);
+		const names = page
+			.getByRole('listitem')
+			.elements()
+			.map((li) => li.getAttribute('aria-label'));
+		expect(names).toEqual(['Grumpy Coffee', 'Midtown Beans', 'Other Cafe']);
+	});
+
+	it('shows the API’s reason beside the field, keeping what was typed', async () => {
+		await setup(
+			() => failure(500),
+			() =>
+				json(
+					{
+						error: {
+							code: 'validation_error',
+							message: 'The request could not be validated.',
+							details: [{ field: 'body.name', message: 'Name is too long.', type: 'max_length' }]
+						}
+					},
+					422
+				)
+		);
+
+		await fillForm('Midtown Beans');
+		await page.getByRole('button', { name: 'Add listing' }).click();
+
+		await expect.element(page.getByText('Name is too long.')).toBeVisible();
+		await expect
+			.element(page.getByRole('textbox', { name: 'Name', exact: true }))
+			.toHaveValue('Midtown Beans');
+		await expect
+			.element(page.getByRole('textbox', { name: 'Coordinates' }))
+			.toHaveValue('40.6782, -73.9442');
+	});
+
+	it('keeps the form filled in when the request fails', async () => {
+		await setup(
+			() => failure(500),
+			() => {
+				throw new TypeError('offline');
+			}
+		);
+
+		await fillForm('Midtown Beans');
+		await page.getByRole('button', { name: 'Add listing' }).click();
+
+		await expect
+			.element(page.getByRole('alert'))
+			.toHaveTextContent('Could not add this listing. Please try again.');
+		await expect
+			.element(page.getByRole('textbox', { name: 'Name', exact: true }))
+			.toHaveValue('Midtown Beans');
+		await expect.element(page.getByRole('button', { name: 'Add listing' })).toBeEnabled();
+		await expect.element(item('Midtown Beans')).not.toBeInTheDocument();
+	});
+
+	it('signs out when the API refuses the credentials', async () => {
+		const { session } = await setup(
+			() => failure(500),
+			() => failure(401)
+		);
+
+		await fillForm('Midtown Beans');
+		await page.getByRole('button', { name: 'Add listing' }).click();
 
 		await expect.poll(() => session.status).toBe('signed-out');
 	});

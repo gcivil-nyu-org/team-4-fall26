@@ -5,6 +5,7 @@ import {
 	completeSignUp,
 	createListing,
 	deleteListing,
+	updateListing,
 	displayName,
 	fetchAccount,
 	fetchAuthConfig
@@ -150,6 +151,25 @@ describe('createListing', () => {
 		expect(calls[0].path).toBe('/api/listings');
 		expect(calls[0].init.method).toBe('POST');
 		expect(JSON.parse(String(calls[0].init.body))).toEqual(draft);
+		expect(new Headers(calls[0].init.headers).get('authorization')).toBe('Bearer token');
+	});
+});
+
+describe('updateListing', () => {
+	it('patches only the changes, by the escaped id', async () => {
+		const { calls, fetcher } = recording(() => json({ id: 'listing:a b', name: 'Renamed' }));
+
+		const spot = await updateListing(
+			{ access: 'token' },
+			'listing:a b',
+			{ name: 'Renamed' },
+			fetcher
+		);
+
+		expect(spot.name).toBe('Renamed');
+		expect(calls[0].path).toBe('/api/listings/listing%3Aa%20b');
+		expect(calls[0].init.method).toBe('PATCH');
+		expect(JSON.parse(String(calls[0].init.body))).toEqual({ name: 'Renamed' });
 		expect(new Headers(calls[0].init.headers).get('authorization')).toBe('Bearer token');
 	});
 });

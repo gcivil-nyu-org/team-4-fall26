@@ -1,11 +1,18 @@
 /**
  * The rules of the business listing form, apart from any component.
  *
- * Turning what an owner typed into a `ListingDraft` is pure, so it is tested
- * here without rendering anything, and the edit form can reuse it later.
+ * Turning what an owner typed into a `ListingDraft`, and working out what an
+ * edit changed, is pure, so it is tested here without rendering anything.
  */
 
-import { LISTING_CATEGORY, type Borough, type ErrorDetail, type ListingDraft } from './contract';
+import {
+	LISTING_CATEGORY,
+	type Borough,
+	type ErrorDetail,
+	type ListingChanges,
+	type ListingDraft,
+	type StudySpot
+} from './contract';
 
 /**
  * A generous box around the five boroughs, as south/north latitude and
@@ -31,24 +38,34 @@ export const PRECISE_LOCATE_OPTIONS: PositionOptions = {
 
 export type Coordinates = { latitude: number; longitude: number };
 
-/** What the Coordinates box holds. */
-export type ParsedCoordinates =
-	| { kind: 'found'; value: Coordinates }
-	| { kind: 'empty' }
-	| { kind: 'malformed' }
-	| { kind: 'outside' };
+/** What the Coordinates box holds, read as numbers but not yet placed. */
+export type ReadCoordinates =
+	{ kind: 'found'; value: Coordinates } | { kind: 'empty' } | { kind: 'malformed' };
+
+/** What the Coordinates box holds, checked to be in the city. */
+export type ParsedCoordinates = ReadCoordinates | { kind: 'outside' };
 
 /** Two decimal numbers separated by a comma, spaces, or both, as Google Maps copies them. */
 const COORDINATES = /^(-?\d+(?:\.\d+)?)\s*(?:,\s*|\s+)(-?\d+(?:\.\d+)?)$/;
 
-/** Read "latitude, longitude", as in `40.72590, -73.99460`, and check it is in the city. */
-export function parseCoordinates(text: string): ParsedCoordinates {
+/** Read "latitude, longitude", as in `40.72590, -73.99460`, wherever it is. */
+export function readCoordinates(text: string): ReadCoordinates {
 	const trimmed = text.trim();
 	if (trimmed === '') return { kind: 'empty' };
 	const match = COORDINATES.exec(trimmed);
 	if (match === null) return { kind: 'malformed' };
-	const value = { latitude: Number(match[1]), longitude: Number(match[2]) };
-	return isInNewYork(value) ? { kind: 'found', value } : { kind: 'outside' };
+	return { kind: 'found', value: { latitude: Number(match[1]), longitude: Number(match[2]) } };
+}
+
+/** Read the coordinates and check they are in the city. */
+export function parseCoordinates(text: string): ParsedCoordinates {
+	const read = readCoordinates(text);
+	return read.kind === 'found' && !isInNewYork(read.value) ? { kind: 'outside' } : read;
+}
+
+/** Equal to the six decimals the form shows, so a stored value matches its own display. */
+function sameCoordinates(a: Coordinates, b: Coordinates): boolean {
+	return formatCoordinates(a) === formatCoordinates(b);
 }
 
 export function isInNewYork({ latitude, longitude }: Coordinates): boolean {
@@ -107,13 +124,26 @@ export const COORDINATE_PROBLEMS = {
 export type Checked =
 	{ kind: 'valid'; draft: ListingDraft } | { kind: 'invalid'; problems: FieldProblems };
 
-/** Check the form and build the request body, or say what is wrong beside each control. */
-export function toDraft(fields: ListingFields): Checked {
+/**
+ * Check the form and build the request body, or say what is wrong beside each
+ * control.
+ *
+ * `existing` is where an edited listing already is. Coordinates left at it
+ * are not held to the city box: a listing stored before the box existed, or
+ * through the API directly, must not block saving an unrelated change.
+ */
+export function toDraft(fields: ListingFields, existing?: Coordinates): Checked {
 	const problems: FieldProblems = {};
 	const name = fields.name.trim();
 	if (name === '') problems.name = 'Enter the name of your space.';
 	if (fields.borough === '') problems.borough = 'Choose a borough.';
-	const coordinates = parseCoordinates(fields.coordinates);
+	const read = readCoordinates(fields.coordinates);
+	const coordinates: ParsedCoordinates =
+		read.kind === 'found' &&
+		!isInNewYork(read.value) &&
+		!(existing !== undefined && sameCoordinates(read.value, existing))
+			? { kind: 'outside' }
+			: read;
 	if (coordinates.kind !== 'found') problems.coordinates = COORDINATE_PROBLEMS[coordinates.kind];
 
 	if (name === '' || fields.borough === '' || coordinates.kind !== 'found')
@@ -154,6 +184,77 @@ function answered(answer: Answer): boolean | null {
 	}
 }
 
+function answerOf(value: boolean | null): Answer {
+	if (value === null) return 'unknown';
+	return value ? 'yes' : 'no';
+}
+
+/** A listing as the form shows it, to edit. */
+export function fieldsFrom(spot: StudySpot): ListingFields {
+	return {
+		name: spot.name,
+		address: spot.address ?? '',
+		neighborhood: spot.neighborhood ?? '',
+		borough: spot.borough,
+		coordinates: formatCoordinates(spot),
+		no_purchase_needed: spot.no_purchase_needed,
+		indoor_seating: answerOf(spot.indoor_seating),
+		venue_wifi: answerOf(spot.venue_wifi),
+		opening_hours: spot.opening_hours ?? ''
+	};
+}
+
+/** The fields `listingChanges` compares one by one; coordinates go as a pair. */
+const COMPARED = [
+	'name',
+	'address',
+	'neighborhood',
+	'borough',
+	'no_purchase_needed',
+	'indoor_seating',
+	'venue_wifi',
+	'opening_hours'
+] as const satisfies readonly (keyof ListingChanges)[];
+
+function put<K extends keyof ListingChanges>(
+	changes: ListingChanges,
+	key: K,
+	value: ListingChanges[K]
+): void {
+	changes[key] = value;
+}
+
+/**
+ * What an edit changed, for `PATCH /listings/{id}`: empty when nothing did.
+ *
+ * `draft` is compared with the listing as the form first showed it, tidied
+ * the way `toDraft` tidies, so retyping the same text or leaving the
+ * coordinates at their six-decimal display counts as no change. Latitude and
+ * longitude are sent together or not at all; the category never is.
+ */
+export function listingChanges(spot: StudySpot, draft: ListingDraft): ListingChanges {
+	const shown = fieldsFrom(spot);
+	const before: Required<ListingChanges> = {
+		name: shown.name.trim(),
+		address: optional(shown.address),
+		neighborhood: optional(shown.neighborhood),
+		borough: spot.borough,
+		latitude: spot.latitude,
+		longitude: spot.longitude,
+		no_purchase_needed: shown.no_purchase_needed,
+		indoor_seating: answered(shown.indoor_seating),
+		venue_wifi: answered(shown.venue_wifi),
+		opening_hours: optional(shown.opening_hours)
+	};
+	const changes: ListingChanges = {};
+	for (const key of COMPARED) if (draft[key] !== before[key]) put(changes, key, draft[key]);
+	if (!sameCoordinates(draft, before)) {
+		changes.latitude = draft.latitude;
+		changes.longitude = draft.longitude;
+	}
+	return changes;
+}
+
 /** The API's names for the fields, mapped to the control each is shown beside. */
 const CONTROL_FOR: Partial<Record<string, ListingField>> = {
 	name: 'name',
@@ -189,8 +290,9 @@ export function problemsFrom(details: readonly ErrorDetail[]): {
 }
 
 /**
- * What became of a submitted draft, as the form's owner reports it. A failure
- * carries the API's validation details, if any, for the form to place.
+ * What became of a submitted draft, as the form's owner reports it. `saved`
+ * means the owner is done with the form and closes it; a failure carries the
+ * API's validation details, if any, for the form to place.
  */
 export type SubmitResult =
 	{ kind: 'saved' } | { kind: 'failed'; message: string; details: readonly ErrorDetail[] };

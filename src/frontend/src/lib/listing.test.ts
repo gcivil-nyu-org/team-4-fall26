@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import type { StudySpot } from './contract';
 import {
 	COORDINATE_PROBLEMS,
 	EMPTY_LISTING,
+	fieldsFrom,
 	formatCoordinates,
+	listingChanges,
 	parseCoordinates,
 	problemsFrom,
 	toDraft,
@@ -134,6 +137,99 @@ describe('problemsFrom', () => {
 		).toEqual({
 			fields: { name: 'Too long.', coordinates: 'Too far north.' },
 			general: ['This field cannot be set on a listing.', 'Something else.']
+		});
+	});
+});
+
+/** A listing as `GET /listings` serves it, stored more precisely than the form shows. */
+const LISTING: StudySpot = {
+	id: 'listing:quiet',
+	name: 'Quiet Corner Cafe',
+	category: 'cafe',
+	address: '12 Bleecker Street',
+	neighborhood: null,
+	borough: 'Manhattan',
+	latitude: 40.72591234,
+	longitude: -73.99461234,
+	university: null,
+	operator: null,
+	free_public_wifi: false,
+	no_purchase_needed: true,
+	subway_station: null,
+	subway_routes: null,
+	subway_metres: null,
+	subway_step_free: null,
+	nearby_spots: 0,
+	outdoor_seating: false,
+	indoor_seating: false,
+	venue_wifi: null,
+	opening_hours: 'Mo-Fr 08:00-18:00'
+};
+
+/** The draft the edit form would send after `change` to its controls. */
+function edited(spot: StudySpot, change: Partial<ListingFields> = {}) {
+	const checked = toDraft({ ...fieldsFrom(spot), ...change }, spot);
+	if (checked.kind !== 'valid') throw new Error(`invalid: ${JSON.stringify(checked.problems)}`);
+	return checked.draft;
+}
+
+describe('fieldsFrom', () => {
+	it('shows a listing in the form, with nothing as blank and null as not sure', () => {
+		expect(fieldsFrom(LISTING)).toEqual({
+			name: 'Quiet Corner Cafe',
+			address: '12 Bleecker Street',
+			neighborhood: '',
+			borough: 'Manhattan',
+			coordinates: '40.725912, -73.994612',
+			no_purchase_needed: true,
+			indoor_seating: 'no',
+			venue_wifi: 'unknown',
+			opening_hours: 'Mo-Fr 08:00-18:00'
+		});
+	});
+});
+
+describe('listingChanges', () => {
+	it('is empty when nothing changed, despite the rounded coordinates', () => {
+		expect(listingChanges(LISTING, edited(LISTING))).toEqual({});
+	});
+
+	it('ignores retyping the same text with spaces around it', () => {
+		expect(listingChanges(LISTING, edited(LISTING, { name: ' Quiet Corner Cafe  ' }))).toEqual({});
+	});
+
+	it('sends only what changed, and never the category', () => {
+		expect(
+			listingChanges(LISTING, edited(LISTING, { name: 'Louder Corner Cafe', venue_wifi: 'yes' }))
+		).toEqual({ name: 'Louder Corner Cafe', venue_wifi: true });
+	});
+
+	it('sends null for cleared text', () => {
+		expect(listingChanges(LISTING, edited(LISTING, { address: '  ' }))).toEqual({ address: null });
+	});
+
+	it('sends latitude and longitude together when either changes', () => {
+		expect(
+			listingChanges(LISTING, edited(LISTING, { coordinates: '40.725912, -73.9950' }))
+		).toEqual({ latitude: 40.725912, longitude: -73.995 });
+	});
+});
+
+describe('toDraft, editing a listing stored outside the city box', () => {
+	const stray: StudySpot = { ...LISTING, latitude: 51.50721234, longitude: -0.12761234 };
+
+	it('lets its coordinates stand when they were not changed', () => {
+		const checked = toDraft({ ...fieldsFrom(stray), name: 'Renamed' }, stray);
+
+		expect(checked.kind).toBe('valid');
+	});
+
+	it('still refuses new coordinates outside the city', () => {
+		const checked = toDraft({ ...fieldsFrom(stray), coordinates: '51.6, -0.13' }, stray);
+
+		expect(checked).toEqual({
+			kind: 'invalid',
+			problems: { coordinates: COORDINATE_PROBLEMS.outside }
 		});
 	});
 });

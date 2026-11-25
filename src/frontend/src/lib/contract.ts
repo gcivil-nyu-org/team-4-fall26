@@ -295,6 +295,12 @@ export type ListingDraft = {
 	opening_hours: string | null;
 };
 
+/**
+ * Only what an edit changed, for `PATCH /listings/{id}`. The category is left
+ * out: a listing's is fixed, and an omitted field is left as it is.
+ */
+export type ListingChanges = Partial<Omit<ListingDraft, 'category'>>;
+
 /** Newest first: by descending creation time, then descending review ID. */
 export type ReviewPage = {
 	items: Review[];

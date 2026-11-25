@@ -10,6 +10,7 @@ import type {
 	Account,
 	AuthConfig,
 	CompleteSignUp,
+	ListingChanges,
 	ListingDraft,
 	StudySpot,
 	UsernameCheck
@@ -133,6 +134,21 @@ export function createListing(
 		'/api/listings',
 		credentials,
 		{ method: 'POST', body: draft },
+		fetcher
+	);
+}
+
+/** Change some fields of one of the caller's listings; answers the listing as it now is. */
+export function updateListing(
+	credentials: Credentials,
+	id: string,
+	changes: ListingChanges,
+	fetcher: Fetcher = globalThis.fetch
+): Promise<StudySpot> {
+	return authenticatedRequest(
+		`/api/listings/${encodeURIComponent(id)}`,
+		credentials,
+		{ method: 'PATCH', body: changes },
 		fetcher
 	);
 }

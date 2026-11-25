@@ -9,7 +9,7 @@ import { render } from 'vitest-browser-svelte';
 
 import ListingForm from './ListingForm.svelte';
 import type { ListingDraft } from './contract';
-import type { SubmitResult } from './listing';
+import { EMPTY_LISTING, type SubmitResult } from './listing';
 import type { Located } from './near';
 
 /** The form, with `located` as every position request's answer. */
@@ -108,5 +108,33 @@ describe('submitting', () => {
 			.element(page.getByText('Enter the coordinates, or use your current location.'))
 			.toBeVisible();
 		expect(submitted).toEqual([]);
+	});
+});
+
+describe('editing', () => {
+	it('starts from the listing and says it saves changes', async () => {
+		render(ListingForm, {
+			purpose: 'edit',
+			initial: {
+				...EMPTY_LISTING,
+				name: 'Quiet Corner Cafe',
+				borough: 'Queens',
+				coordinates: '40.746600, -73.700400',
+				venue_wifi: 'yes'
+			},
+			onSubmit: async (): Promise<SubmitResult> => ({ kind: 'saved' }),
+			onCancel: () => {}
+		});
+
+		await expect.element(page.getByRole('heading', { name: 'Edit listing' })).toBeVisible();
+		await expect
+			.element(page.getByRole('textbox', { name: 'Name', exact: true }))
+			.toHaveValue('Quiet Corner Cafe');
+		await expect.element(page.getByRole('combobox', { name: 'Borough' })).toHaveValue('Queens');
+		await expect.element(coordinates()).toHaveValue('40.746600, -73.700400');
+		await expect
+			.element(page.getByRole('group', { name: 'Wi-Fi for visitors' }).getByLabelText('Yes'))
+			.toBeChecked();
+		await expect.element(page.getByRole('button', { name: 'Save changes' })).toBeVisible();
 	});
 });

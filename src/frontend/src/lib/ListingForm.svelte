@@ -6,12 +6,15 @@
 		formatCoordinates,
 		isInNewYork,
 		problemsFrom,
+		readCoordinates,
 		toDraft,
 		COORDINATE_PROBLEMS,
 		type Answer,
 		type FieldProblems,
+		type ListingFields,
 		type SubmitResult
 	} from './listing';
+	import { untrack } from 'svelte';
 	import { locate, type Located } from './near';
 
 	type Props = {
@@ -20,15 +23,33 @@
 		onCancel: () => void;
 		/** Replaceable so a test can answer without a real browser position. */
 		findLocation?: () => Promise<Located>;
+		/** What the controls start with: blank to add, the listing to edit. */
+		initial?: ListingFields;
+		/** Only the wording differs between adding and editing. */
+		purpose?: 'add' | 'edit';
 	};
 	let {
 		onSubmit,
 		onCancel,
-		findLocation = () => locate(navigator.geolocation, PRECISE_LOCATE_OPTIONS)
+		findLocation = () => locate(navigator.geolocation, PRECISE_LOCATE_OPTIONS),
+		initial = EMPTY_LISTING,
+		purpose = 'add'
 	}: Props = $props();
 
+	const WORDING = {
+		add: { title: 'Add a listing', submit: 'Add listing', busy: 'Adding…' },
+		edit: { title: 'Edit listing', submit: 'Save changes', busy: 'Saving…' }
+	} as const;
+	const wording = $derived(WORDING[purpose]);
+
 	const id = $props.id();
-	let fields = $state({ ...EMPTY_LISTING });
+	// The form is opened afresh for each listing, so only the first `initial` counts.
+	let fields = $state({ ...untrack(() => initial) });
+	/** Where an edited listing already is, which the city check lets stand. */
+	const existing = untrack(() => {
+		const read = readCoordinates(initial.coordinates);
+		return read.kind === 'found' ? read.value : undefined;
+	});
 	let problems = $state<FieldProblems>({});
 	let general = $state<string[]>([]);
 	let submitting = $state(false);
@@ -76,7 +97,7 @@
 	async function submit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
 		if (submitting) return;
-		const checked = toDraft(fields);
+		const checked = toDraft(fields, existing);
 		if (checked.kind === 'invalid') {
 			problems = checked.problems;
 			general = [];
@@ -109,7 +130,7 @@
 {/snippet}
 
 <form aria-labelledby="{id}-title" novalidate onsubmit={submit}>
-	<h3 id="{id}-title">Add a listing</h3>
+	<h3 id="{id}-title">{wording.title}</h3>
 	{#each general as message (message)}
 		<p class="problem" role="alert">{message}</p>
 	{/each}
@@ -219,7 +240,7 @@
 		{@render problem('opening_hours')}
 
 		<div class="actions">
-			<button type="submit" class="primary">{submitting ? 'Adding…' : 'Add listing'}</button>
+			<button type="submit" class="primary">{submitting ? wording.busy : wording.submit}</button>
 			<button type="button" onclick={onCancel}>Cancel</button>
 		</div>
 	</fieldset>

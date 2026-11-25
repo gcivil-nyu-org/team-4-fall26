@@ -62,15 +62,22 @@ function failure(status: number): Response {
 /**
  * A signed-in business session, and the listing routes it talks to.
  *
- * `onDelete` answers each `DELETE /listings/{id}` and `onPost` each
- * `POST /listings`; every request the listing routes see is recorded as
- * `METHOD path`, and every body posted is kept.
+ * `GET /listings` answers `items`; `onDelete` answers each
+ * `DELETE /listings/{id}`, `onPost` each `POST /listings` and `onPatch` each
+ * `PATCH /listings/{id}`. Every request the listing routes see is recorded as
+ * `METHOD path`, and every body posted or patched is kept.
  */
-async function setup(
-	onDelete: () => Promise<Response> | Response,
-	onPost: (body: Record<string, unknown>) => Response = (body) =>
-		json({ ...SPOT, ...body, id: 'listing:new' }, 201)
-) {
+async function setup({
+	items = [SPOT, OTHER],
+	onDelete = () => new Response(null, { status: 204 }),
+	onPost = (body) => json({ ...SPOT, ...body, id: 'listing:new' }, 201),
+	onPatch = (body) => json({ ...items[0], ...body })
+}: {
+	items?: StudySpot[];
+	onDelete?: () => Promise<Response> | Response;
+	onPost?: (body: Record<string, unknown>) => Response;
+	onPatch?: (body: Record<string, unknown>) => Response;
+} = {}) {
 	const client = {
 		checkSession: async () => {},
 		isAuthenticated: async () => true,
@@ -92,6 +99,7 @@ async function setup(
 	const requests: string[] = [];
 	const headers: Headers[] = [];
 	const posted: Record<string, unknown>[] = [];
+	const patched: Record<string, unknown>[] = [];
 	const fetcher = (async (input: RequestInfo | URL, init: RequestInit = {}) => {
 		const method = init.method ?? 'GET';
 		requests.push(`${method} ${String(input)}`);
@@ -102,19 +110,24 @@ async function setup(
 			posted.push(body);
 			return onPost(body);
 		}
-		return json({ items: [SPOT, OTHER] });
+		if (method === 'PATCH') {
+			const body = JSON.parse(String(init.body));
+			patched.push(body);
+			return onPatch(body);
+		}
+		return json({ items });
 	}) as typeof fetch;
 
 	render(OwnedListings, { session, fetcher });
-	await expect.element(page.getByRole('link', { name: /Grumpy Coffee/ })).toBeVisible();
-	return { session, requests, headers, posted };
+	await expect.element(page.getByRole('link', { name: new RegExp(items[0].name) })).toBeVisible();
+	return { session, requests, headers, posted, patched };
 }
 
 const item = (name: string) => page.getByRole('listitem', { name });
 
 describe('deleting a listing', () => {
 	it('asks first, saying what else goes, and Cancel sends nothing', async () => {
-		const { requests } = await setup(() => new Response(null, { status: 204 }));
+		const { requests } = await setup();
 
 		await item('Grumpy Coffee').getByRole('button', { name: 'Delete' }).click();
 
@@ -132,7 +145,7 @@ describe('deleting a listing', () => {
 
 	it('removes it once the API confirms, and cannot be sent twice', async () => {
 		const answer = Promise.withResolvers<Response>();
-		const { requests, headers } = await setup(() => answer.promise);
+		const { requests, headers } = await setup({ onDelete: () => answer.promise });
 
 		await item('Grumpy Coffee').getByRole('button', { name: 'Delete' }).click();
 		await page.getByRole('button', { name: 'Confirm delete' }).click();
@@ -152,7 +165,7 @@ describe('deleting a listing', () => {
 	});
 
 	it('drops a listing the API says is already gone', async () => {
-		await setup(() => failure(404));
+		await setup({ onDelete: () => failure(404) });
 
 		await item('Grumpy Coffee').getByRole('button', { name: 'Delete' }).click();
 		await page.getByRole('button', { name: 'Confirm delete' }).click();
@@ -170,7 +183,7 @@ describe('deleting a listing', () => {
 			}
 		]
 	])('keeps the list as it was after %s', async (_, answer) => {
-		await setup(answer);
+		await setup({ onDelete: answer });
 
 		await item('Grumpy Coffee').getByRole('button', { name: 'Delete' }).click();
 		await page.getByRole('button', { name: 'Confirm delete' }).click();
@@ -185,7 +198,7 @@ describe('deleting a listing', () => {
 	});
 
 	it('signs out when the API refuses the credentials', async () => {
-		const { session } = await setup(() => failure(401));
+		const { session } = await setup({ onDelete: () => failure(401) });
 
 		await item('Grumpy Coffee').getByRole('button', { name: 'Delete' }).click();
 		await page.getByRole('button', { name: 'Confirm delete' }).click();
@@ -205,7 +218,7 @@ async function fillForm(name: string): Promise<void> {
 
 describe('adding a listing', () => {
 	it('sends the draft and shows the new listing in name order', async () => {
-		const { posted } = await setup(() => failure(500));
+		const { posted } = await setup();
 
 		await fillForm('Midtown Beans');
 		await page.getByRole('button', { name: 'Add listing' }).click();
@@ -235,9 +248,8 @@ describe('adding a listing', () => {
 	});
 
 	it('shows the API’s reason beside the field, keeping what was typed', async () => {
-		await setup(
-			() => failure(500),
-			() =>
+		await setup({
+			onPost: () =>
 				json(
 					{
 						error: {
@@ -248,7 +260,7 @@ describe('adding a listing', () => {
 					},
 					422
 				)
-		);
+		});
 
 		await fillForm('Midtown Beans');
 		await page.getByRole('button', { name: 'Add listing' }).click();
@@ -263,12 +275,11 @@ describe('adding a listing', () => {
 	});
 
 	it('keeps the form filled in when the request fails', async () => {
-		await setup(
-			() => failure(500),
-			() => {
+		await setup({
+			onPost: () => {
 				throw new TypeError('offline');
 			}
-		);
+		});
 
 		await fillForm('Midtown Beans');
 		await page.getByRole('button', { name: 'Add listing' }).click();
@@ -284,13 +295,141 @@ describe('adding a listing', () => {
 	});
 
 	it('signs out when the API refuses the credentials', async () => {
-		const { session } = await setup(
-			() => failure(500),
-			() => failure(401)
-		);
+		const { session } = await setup({ onPost: () => failure(401) });
 
 		await fillForm('Midtown Beans');
 		await page.getByRole('button', { name: 'Add listing' }).click();
+
+		await expect.poll(() => session.status).toBe('signed-out');
+	});
+});
+
+/** A listing stored outside the city box, as the API alone could have made it. */
+const STRAY: StudySpot = {
+	...SPOT,
+	id: 'listing:stray',
+	name: 'Faraway Cafe',
+	latitude: 51.50721234,
+	longitude: -0.12761234
+};
+
+/** Open the edit form for `from`, rename it `to`, and save. */
+async function rename(from: string, to: string): Promise<void> {
+	await item(from).getByRole('button', { name: 'Edit' }).click();
+	await page.getByRole('textbox', { name: 'Name', exact: true }).fill(to);
+	await page.getByRole('button', { name: 'Save changes' }).click();
+}
+
+describe('editing a listing', () => {
+	it('opens filled in, sends only what changed, and re-sorts the list', async () => {
+		const { requests, patched } = await setup();
+
+		await item('Grumpy Coffee').getByRole('button', { name: 'Edit' }).click();
+
+		await expect.element(page.getByRole('heading', { name: 'Edit listing' })).toBeVisible();
+		await expect
+			.element(page.getByRole('textbox', { name: 'Name', exact: true }))
+			.toHaveValue('Grumpy Coffee');
+		await expect.element(page.getByRole('combobox', { name: 'Borough' })).toHaveValue('Manhattan');
+		await expect
+			.element(page.getByRole('textbox', { name: 'Coordinates' }))
+			.toHaveValue('40.700000, -74.000000');
+
+		await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Zesty Coffee');
+		await page.getByRole('button', { name: 'Save changes' }).click();
+
+		await expect.element(page.getByRole('status')).toHaveTextContent('Saved Zesty Coffee.');
+		await expect
+			.element(page.getByRole('heading', { name: 'Edit listing' }))
+			.not.toBeInTheDocument();
+		expect(patched).toEqual([{ name: 'Zesty Coffee' }]);
+		expect(requests).toEqual(['GET /api/listings', 'PATCH /api/listings/listing%3Agrumpy']);
+		const names = page
+			.getByRole('listitem')
+			.elements()
+			.map((li) => li.getAttribute('aria-label'));
+		expect(names).toEqual(['Other Cafe', 'Zesty Coffee']);
+	});
+
+	it('sends nothing when nothing changed', async () => {
+		const { requests } = await setup();
+
+		await item('Grumpy Coffee').getByRole('button', { name: 'Edit' }).click();
+		await page.getByRole('button', { name: 'Save changes' }).click();
+
+		await expect.element(page.getByRole('status')).toHaveTextContent('No changes to save.');
+		await expect
+			.element(page.getByRole('heading', { name: 'Edit listing' }))
+			.not.toBeInTheDocument();
+		expect(requests).toEqual(['GET /api/listings']);
+	});
+
+	it('saves other changes to a listing whose stored coordinates are outside the city', async () => {
+		const { patched } = await setup({ items: [STRAY, SPOT] });
+
+		await rename('Faraway Cafe', 'Faraway Coffee');
+
+		await expect.element(page.getByRole('status')).toHaveTextContent('Saved Faraway Coffee.');
+		expect(patched).toEqual([{ name: 'Faraway Coffee' }]);
+	});
+
+	it('drops a listing the API says is gone', async () => {
+		await setup({ onPatch: () => failure(404) });
+
+		await rename('Grumpy Coffee', 'Zesty Coffee');
+
+		await expect.element(page.getByRole('status')).toHaveTextContent('Already deleted.');
+		await expect.element(item('Grumpy Coffee')).not.toBeInTheDocument();
+	});
+
+	it('shows the API’s reason beside the field, keeping what was typed', async () => {
+		await setup({
+			onPatch: () =>
+				json(
+					{
+						error: {
+							code: 'validation_error',
+							message: 'The request could not be validated.',
+							details: [{ field: 'body.name', message: 'Name is too long.', type: 'max_length' }]
+						}
+					},
+					422
+				)
+		});
+
+		await rename('Grumpy Coffee', 'Zesty Coffee');
+
+		await expect.element(page.getByText('Name is too long.')).toBeVisible();
+		await expect
+			.element(page.getByRole('textbox', { name: 'Name', exact: true }))
+			.toHaveValue('Zesty Coffee');
+	});
+
+	it.each([
+		['a refusal', () => failure(403), 'Refused.'],
+		[
+			'a network failure',
+			() => {
+				throw new TypeError('offline');
+			},
+			'Could not save your changes. Please try again.'
+		]
+	])('keeps the form filled in after %s', async (_, onPatch, message) => {
+		await setup({ onPatch });
+
+		await rename('Grumpy Coffee', 'Zesty Coffee');
+
+		await expect.element(page.getByRole('alert')).toHaveTextContent(message);
+		await expect
+			.element(page.getByRole('textbox', { name: 'Name', exact: true }))
+			.toHaveValue('Zesty Coffee');
+		await expect.element(page.getByRole('button', { name: 'Save changes' })).toBeEnabled();
+	});
+
+	it('signs out when the API refuses the credentials', async () => {
+		const { session } = await setup({ onPatch: () => failure(401) });
+
+		await rename('Grumpy Coffee', 'Zesty Coffee');
 
 		await expect.poll(() => session.status).toBe('signed-out');
 	});

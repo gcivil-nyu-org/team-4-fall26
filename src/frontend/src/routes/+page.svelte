@@ -1,6 +1,8 @@
 <script lang="ts">
 	// Aliased because `page` is a local name for a page of results throughout
 	// this file, which is a different thing entirely.
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page as route } from '$app/state';
 	import BestSeats from '$lib/landing/BestSeats.svelte';
 	import CardStack from '$lib/landing/CardStack.svelte';
@@ -27,7 +29,6 @@
 		searchSpots
 	} from '$lib/api';
 	import type { Facets, Near, NearbySpot, SpotFilters, StudySpot } from '$lib/contract';
-	import { locate } from '$lib/near';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -93,15 +94,39 @@
 	 * relevance and takes no point -- so setting one empties the other.
 	 */
 	let near = $state<Near | null>(null);
-	let locating = $state(false);
-	let nearNotice = $state('');
+
+	/** Whether the filter menu is open. Closed, its controls still apply. */
+	let filtersOpen = $state(false);
+	/** How many filters are narrowing or ordering the results, for the menu's badge. */
+	let activeFilters = $derived(
+		Object.values(filters).filter((value) => value !== undefined && value !== '' && value !== false)
+			.length + (near ? 1 : 0)
+	);
+
+	let wandering = $state(false);
+	/** Why Wander found nowhere to go, in words for the reader. */
+	let wanderNotice = $state('');
 
 	/**
-	 * Tags each Near me click, like `latestSearch` does requests, so a position
-	 * that arrives after the reader has moved on -- typed a search, picked a
-	 * neighborhood -- is dropped rather than snatching the results back.
+	 * Kagi's example searches under the box: each one runs a real search, and
+	 * the tag before it says what kind -- a place, a borough, a filter.
 	 */
-	let latestLocate = 0;
+	const SUGGESTIONS: readonly { tag: string; label: string; apply: () => void }[] = [
+		{ tag: '@', label: 'Bryant Park', apply: () => handleSearch('Bryant Park') },
+		{
+			tag: 'in:',
+			label: 'Libraries in Brooklyn',
+			apply: () => {
+				filters = { ...filters, borough: 'Brooklyn' };
+				handleSearch('library');
+			}
+		},
+		{
+			tag: '#',
+			label: 'Free Wi-Fi, nothing to buy',
+			apply: () => handleFilters({ ...filters, free_public_wifi: true, no_purchase_needed: true })
+		}
+	];
 
 	/**
 	 * List or map.
@@ -286,14 +311,8 @@
 		runNow();
 	}
 
-	/**
-	 * Stop ordering by distance, and abandon a Near me still waiting for a
-	 * position. Leaves the request to the caller, which knows what comes next.
-	 */
+	/** Stop ordering by distance. Leaves the request to the caller. */
 	function leaveNear(): void {
-		latestLocate++;
-		locating = false;
-		nearNotice = '';
 		near = null;
 	}
 
@@ -301,35 +320,41 @@
 	function useNear(next: Near): void {
 		query = '';
 		near = next;
-		nearNotice = '';
 		runNow();
 	}
 
-	async function handleLocate(): Promise<void> {
-		const request = ++latestLocate;
-		locating = true;
-		nearNotice = '';
+	/**
+	 * Wander: skip the list and go somewhere -- one spot, picked at random from
+	 * whatever the box and the filters would find, the way a flâneur picks a
+	 * street. Two requests, one to count the matches and one for the spot at
+	 * a random offset, so every match is equally likely, not just page one.
+	 */
+	async function wander(): Promise<void> {
+		if (wandering) return;
+		wandering = true;
+		wanderNotice = '';
+		const text = query.trim();
+		const find = (offset: number) => {
+			const options = { limit: 1, offset, filters };
+			return text ? searchSpots(text, options) : listSpots(options);
+		};
 
-		const outcome = await locate(navigator.geolocation);
-		if (request !== latestLocate) return;
-		locating = false;
-
-		switch (outcome.kind) {
-			case 'found':
-				useNear({ kind: 'point', latitude: outcome.latitude, longitude: outcome.longitude });
-				break;
-			case 'denied':
-				nearNotice =
-					"Location access is blocked for this site. Allow it in your browser's site settings, or choose a neighborhood instead.";
-				break;
-			case 'unsupported':
-				nearNotice = "This browser can't share your location. Choose a neighborhood instead.";
-				break;
-			case 'unavailable':
-				nearNotice = "Couldn't find your location. Try again, or choose a neighborhood instead.";
-				break;
-			default:
-				outcome satisfies never;
+		try {
+			const first = await find(0);
+			const { total } = first.pagination;
+			const pick =
+				total > 1 ? (await find(Math.floor(Math.random() * total))).items[0] : first.items[0];
+			if (!pick) {
+				wanderNotice = text
+					? `Nothing matches ${text}. Try another word, or clear a filter.`
+					: 'Nothing matches these filters. Clear one and try again.';
+				return;
+			}
+			await goto(resolve(`/spots/${pick.id}` as '/'));
+		} catch (error) {
+			wanderNotice = describe(error);
+		} finally {
+			wandering = false;
 		}
 	}
 
@@ -434,33 +459,73 @@
 		<div class="first-scene">
 			<SearchBackground />
 			<div class="search-stage" class:browsing={!searched}>
-				<section
-					class="hero"
-					class:compact={searched}
-					data-search-panel
-					aria-labelledby="hero-title"
-				>
-					<div class="copy">
-						<p class="eyebrow">New York City</p>
-						<h1 id="hero-title">Find a place to study together.</h1>
-						<p class="description">A great study session starts with the right spot.</p>
-					</div>
+				<section class="hero" class:compact={searched} aria-labelledby="hero-title">
+					<h1 id="hero-title">Find a place to study together.</h1>
 
 					<div class="search-card">
-						<SearchBar value={query} onInput={handleQueryInput} onSearch={handleSearch} />
-						<div class="search-divider" aria-hidden="true"></div>
-						<NearControl
-							neighborhoods={data.neighborhoods}
-							{near}
-							{locating}
-							notice={nearNotice}
-							onLocate={() => void handleLocate()}
-							onNeighborhood={handleNeighborhood}
-							onClear={handleClearNear}
-						/>
-						<div class="search-divider" aria-hidden="true"></div>
-						<SpotFiltersBar {facets} {filters} onChange={handleFilters} />
+						<SearchBar value={query} onInput={handleQueryInput} onSearch={handleSearch}>
+							<button
+								type="button"
+								class="filters-toggle"
+								aria-expanded={filtersOpen}
+								aria-controls="search-filters"
+								onclick={() => (filtersOpen = !filtersOpen)}
+							>
+								<svg viewBox="0 0 16 16" aria-hidden="true">
+									<path d={filtersOpen ? 'M4 4l8 8M12 4l-8 8' : 'M2.5 4.5h11M2.5 8h11M2.5 11.5h11'}
+									></path>
+								</svg>
+								Filters
+								{#if activeFilters}<span class="badge">{activeFilters}</span>{/if}
+							</button>
+						</SearchBar>
+
+						<div id="search-filters" class="filter-menu" hidden={!filtersOpen}>
+							<NearControl
+								neighborhoods={data.neighborhoods}
+								{near}
+								onNeighborhood={handleNeighborhood}
+								onClear={handleClearNear}
+							/>
+							<SpotFiltersBar {facets} {filters} onChange={handleFilters} />
+						</div>
+
+						<ul class="suggestions" aria-label="Try a search">
+							{#each SUGGESTIONS as suggestion (suggestion.label)}
+								<li>
+									<button type="button" class="chip" onclick={suggestion.apply}>
+										<span class="tag" aria-hidden="true">{suggestion.tag}</span>
+										{suggestion.label}
+										<svg viewBox="0 0 24 24" aria-hidden="true">
+											<circle cx="11" cy="11" r="6.5"></circle>
+											<path d="m16 16 4 4"></path>
+										</svg>
+									</button>
+								</li>
+							{/each}
+							<li>
+								<button
+									type="button"
+									class="chip wander"
+									class:spinning={wandering}
+									disabled={wandering}
+									title="Take me somewhere: one spot, picked at random"
+									onclick={() => void wander()}
+								>
+									<svg class="compass" viewBox="0 0 24 24" aria-hidden="true">
+										<circle cx="12" cy="12" r="9"></circle>
+										<path class="needle" d="M12 5.5 14.2 12 12 18.5 9.8 12Z"></path>
+									</svg>
+									{wandering ? 'Wandering…' : 'Wander'}
+								</button>
+							</li>
+						</ul>
+						{#if wanderNotice}
+							<p class="wander-notice" role="alert">{wanderNotice}</p>
+						{/if}
 					</div>
+
+					<p class="description">Free to search. No ads. Every spot free to sit in.</p>
 				</section>
 
 				<!-- aria-live so a screen reader hears the outcome without moving focus. -->
@@ -513,22 +578,29 @@
 			</div>
 		</div>
 
-		<IntroStatement />
-		<SessionStages />
-		<VisionFeelings />
-		<CardStack>
-			{#snippet under()}<BestSeats boroughs={data.bestSeats} />{/snippet}
-			{#snippet over()}<OtherCities />{/snippet}
-		</CardStack>
-		<SpiralCta />
+		<CardStack cards={[intro, stages, vision, seats, cities, spiral]} />
+		{#snippet intro()}<IntroStatement />{/snippet}
+		{#snippet stages()}<SessionStages />{/snippet}
+		{#snippet vision()}<VisionFeelings />{/snippet}
+		{#snippet seats()}<BestSeats boroughs={data.bestSeats} />{/snippet}
+		{#snippet cities()}<OtherCities />{/snippet}
+		{#snippet spiral()}<SpiralCta />{/snippet}
 	</main>
 </div>
 
 <style>
 	.page {
 		--home-gutter: 24px;
-		--home-header-height: 76px;
-		--site-brand-color: #fff8ed;
+		--home-header-height: 72px;
+		/* The landing deck's cards pin just below the sticky header (read as px by script). */
+		--deck-top: 80px;
+		--site-header-text: #f7f8f8;
+		--site-header-muted: #8a8f98;
+		--site-header-hover: rgb(255 255 255 / 7%);
+		--site-header-rule: rgb(255 255 255 / 10%);
+		--site-header-cta: #e5e5e6;
+		--site-header-cta-text: #08090a;
+		--site-menu-bg: #0f1011;
 		isolation: isolate;
 		min-height: 100vh;
 		min-height: 100dvh;
@@ -536,7 +608,13 @@
 	}
 
 	.home-nav {
-		padding-inline: var(--home-gutter);
+		position: sticky;
+		z-index: 10;
+		top: 0;
+		padding-inline: 20px;
+		border-bottom: 1px solid rgb(255 255 255 / 8%);
+		background: rgb(8 9 10 / 72%);
+		backdrop-filter: blur(20px);
 	}
 
 	.first-scene {
@@ -555,30 +633,60 @@
 		min-height: calc(100svh - var(--home-header-height));
 	}
 
+	/*
+		Linear's palette: near-black surfaces a step apart, hairline borders of
+		white at low opacity, grey text in three strengths, and indigo for the
+		one thing to press. The search components read these tokens.
+	*/
 	.hero {
+		--ln-panel: #0f1011;
+		--ln-surface: #141516;
+		--ln-raised: #1c1d1f;
+		--ln-border: rgb(255 255 255 / 8%);
+		--ln-text: #f7f8f8;
+		--ln-muted: #8a8f98;
+		--ln-faint: #62666d;
+		--ln-brand: #5e6ad2;
+		--ln-brand-hover: #7170ff;
+		position: relative;
 		display: flex;
-		width: min(900px, calc(100% - 48px));
-		min-height: min(590px, calc(100vh - 212px));
+		width: min(820px, 100%);
+		min-height: calc(100svh - var(--home-header-height) - 48px);
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 32px;
-		margin: clamp(24px, 4vh, 48px) auto 0;
-		padding: 42px 32px;
-		border-radius: 24px;
-		background: #f7f1eb;
-		box-shadow: 0 16px 54px rgb(0 0 0 / 32%);
+		gap: 36px;
+		margin: 0 auto;
+		padding: 48px 0;
+		isolation: isolate;
+		color: var(--ln-text);
 		text-align: center;
-		transition:
-			min-height 240ms ease,
-			padding 240ms ease;
+		transition: min-height 240ms ease;
+	}
+
+	/*
+		No card: the search sits straight on the background, with a soft pool
+		of dark behind it so the words read over the brightest part.
+	*/
+	.hero::before {
+		position: absolute;
+		z-index: -1;
+		background: radial-gradient(
+			closest-side,
+			rgb(8 9 10 / 92%),
+			rgb(8 9 10 / 70%) 55%,
+			rgb(8 9 10 / 0%)
+		);
+		content: '';
+		inset: -4% -18%;
+		pointer-events: none;
 	}
 
 	/* Once results exist, the hero stops owning the whole viewport. */
 	.hero.compact {
 		min-height: 0;
 		gap: 24px;
-		padding: 28px 32px;
+		padding: 32px 0;
 	}
 
 	.hero.compact h1 {
@@ -589,72 +697,185 @@
 		display: none;
 	}
 
-	.copy {
-		max-width: 760px;
-	}
-
 	.search-card {
-		width: min(800px, 100%);
-		padding: 10px;
-		border: 1px solid var(--color-border);
-		border-radius: 24px;
-		background: #fff;
-		box-shadow: 0 16px 44px rgb(34 34 34 / 9%);
+		display: grid;
+		width: 100%;
+		gap: 18px;
 		text-align: left;
 	}
 
-	.search-divider {
-		height: 1px;
-		margin: 0 8px;
-		background: #eee9e4;
-	}
-
-	:global(.search-card form[role='search']) {
-		width: 100%;
+	.filters-toggle {
+		display: inline-flex;
+		height: 36px;
+		flex: none;
+		align-items: center;
+		gap: 7px;
+		padding: 0 12px;
 		border: 0;
-		border-radius: 18px;
+		border-left: 1px solid var(--ln-border);
+		border-radius: 0;
 		background: transparent;
-		box-shadow: none;
+		color: var(--ln-muted);
+		font-size: 13px;
+		font-weight: 500;
+		cursor: pointer;
 	}
 
-	:global(.search-card form[role='search'] button) {
-		background: var(--color-brand-hover);
+	.filters-toggle:hover,
+	.filters-toggle[aria-expanded='true'] {
+		color: var(--ln-text);
 	}
 
-	:global(.search-card form[role='search'] button:hover) {
-		background: #b50935;
+	.filters-toggle:focus-visible,
+	.chip:focus-visible {
+		outline: 2px solid var(--ln-brand-hover);
+		outline-offset: 2px;
 	}
 
-	:global(.search-card .filters) {
-		width: 100%;
+	.filters-toggle svg {
+		width: 14px;
+		height: 14px;
+		fill: none;
+		stroke: currentColor;
+		stroke-linecap: round;
+		stroke-width: 1.5;
+	}
+
+	.badge {
+		display: inline-grid;
+		min-width: 18px;
+		height: 18px;
+		padding: 0 5px;
+		border-radius: 999px;
+		background: var(--ln-brand);
+		color: #fff;
+		font-size: 11px;
+		place-items: center;
+	}
+
+	.filter-menu {
+		display: grid;
+		gap: 8px;
+		padding: 10px;
+		border: 1px solid var(--ln-border);
+		border-radius: 16px;
+		background: rgb(15 16 17 / 92%);
+		backdrop-filter: blur(12px);
+	}
+
+	.filter-menu[hidden] {
+		display: none;
+	}
+
+	/* Kagi's example searches: quiet chips, a coloured tag, a small lens. */
+	.suggestions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 10px;
 		margin: 0;
-		padding: 12px 0 0;
+		padding: 0;
+		list-style: none;
 	}
 
-	.eyebrow {
-		margin: 0 0 16px;
-		color: var(--color-brand-hover);
-		font-size: 12px;
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
+	.chip {
+		display: inline-flex;
+		min-height: 36px;
+		align-items: center;
+		gap: 6px;
+		padding: 0 12px;
+		border: 1px solid var(--ln-border);
+		border-radius: 8px;
+		background: rgb(20 21 22 / 80%);
+		color: var(--ln-text);
+		font-size: 14px;
+		cursor: pointer;
+		transition:
+			background-color 120ms ease,
+			border-color 120ms ease;
+	}
+
+	.chip:hover {
+		border-color: rgb(255 255 255 / 16%);
+		background: var(--ln-raised);
+	}
+
+	.tag {
+		color: var(--ln-brand-hover);
+		font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+		font-size: 13px;
+	}
+
+	.chip svg {
+		width: 15px;
+		height: 15px;
+		fill: none;
+		stroke: var(--ln-muted);
+		stroke-linecap: round;
+		stroke-width: 1.8;
+	}
+
+	/* Wander: a compass whose needle swings round while it picks. */
+	.wander {
+		border-color: rgb(113 112 255 / 35%);
+		background: rgb(94 106 210 / 14%);
+	}
+
+	.wander .compass {
+		width: 17px;
+		height: 17px;
+		stroke: var(--ln-brand-hover);
+	}
+
+	.wander .needle {
+		fill: var(--ln-brand-hover);
+		stroke: none;
+		transform-origin: 12px 12px;
+		transition: transform 500ms cubic-bezier(0.23, 1, 0.32, 1);
+	}
+
+	.wander:hover .needle {
+		transform: rotate(35deg);
+	}
+
+	.wander.spinning .needle {
+		animation: swing 0.9s linear infinite;
+	}
+
+	.wander:disabled {
+		cursor: progress;
+	}
+
+	@keyframes swing {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.wander-notice {
+		margin: 0;
+		color: #eb5757;
+		font-size: 13px;
+		text-align: center;
 	}
 
 	h1 {
+		max-width: 12em;
 		margin: 0;
-		font-size: clamp(3.2rem, 7vw, 5.75rem);
-		font-weight: 750;
-		letter-spacing: -0.07em;
-		line-height: 0.96;
+		background: linear-gradient(180deg, #f7f8f8 30%, rgb(247 248 248 / 55%));
+		background-clip: text;
+		color: transparent;
+		font-size: clamp(3rem, 6.5vw, 5.25rem);
+		font-weight: 600;
+		letter-spacing: -0.05em;
+		line-height: 1;
 		transition: font-size 240ms ease;
 	}
 
 	.description {
-		max-width: 580px;
-		margin: 26px auto 0;
-		color: var(--color-muted);
-		font-size: 17px;
-		line-height: 1.6;
+		margin: 0;
+		color: var(--ln-faint);
+		font-size: 14px;
 	}
 
 	.status {
@@ -688,6 +909,7 @@
 	@media (max-width: 740px) {
 		.page {
 			--home-header-height: 56px;
+			--deck-top: 64px;
 		}
 	}
 

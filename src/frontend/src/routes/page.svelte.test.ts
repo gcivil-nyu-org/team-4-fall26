@@ -9,12 +9,18 @@
  */
 
 import { page, userEvent } from 'vitest/browser';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 
 import Home from './+page.svelte';
 import type { Facets, NearbySpotPage, SpotPage, StudySpot } from '$lib/contract';
 import type { NeighborhoodGroup } from '$lib/near';
+
+const { goto } = vi.hoisted(() => ({ goto: vi.fn() }));
+vi.mock('$app/navigation', async (original) => ({
+	...(await original<typeof import('$app/navigation')>()),
+	goto
+}));
 
 /** What the build-time loader hands the page: the picker's neighborhoods. */
 const NEIGHBORHOODS: NeighborhoodGroup[] = [
@@ -146,6 +152,12 @@ afterEach(() => {
 const box = () => page.getByLabelText('Where');
 const searchButton = () => page.getByRole('button', { name: 'Search' });
 
+/** The filters live behind a menu button; open it, unless it already is. */
+async function openFilters(): Promise<void> {
+	const menu = page.getByRole('button', { name: /^Filters/ });
+	if (menu.element().getAttribute('aria-expanded') !== 'true') await menu.click();
+}
+
 describe('the search box', () => {
 	it('searches for what it holds when submitted', async () => {
 		renderHome();
@@ -167,6 +179,7 @@ describe('the search box', () => {
 
 		// Emptied by hand, with no second submit -- exactly the reported bug.
 		await box().clear();
+		await openFilters();
 		await page.getByLabelText(/^Borough/).selectOptions('Bronx');
 
 		await expect.element(page.getByText('Allerton Library')).toBeInTheDocument();
@@ -179,6 +192,7 @@ describe('the search box', () => {
 		renderHome();
 
 		await box().fill('library');
+		await openFilters();
 		await page.getByLabelText(/^Borough/).selectOptions('Bronx');
 
 		await expect.element(page.getByText('Bobst Library')).toBeInTheDocument();
@@ -299,6 +313,7 @@ describe('the filter counts', () => {
 		// borough that holds one of them.
 		renderHome();
 
+		await openFilters();
 		await page.getByLabelText(/^Borough/).selectOptions('Bronx');
 		await expect.element(page.getByText('Allerton Library')).toBeInTheDocument();
 
@@ -484,92 +499,8 @@ describe('the Map tab in the header', () => {
 	});
 });
 
-describe('Near me', () => {
-	let realGeolocation: PropertyDescriptor | undefined;
-
-	beforeEach(() => {
-		realGeolocation = Object.getOwnPropertyDescriptor(navigator, 'geolocation');
-	});
-
-	afterEach(() => {
-		// Defined on the instance by the stub, so removing it uncovers the
-		// browser's own getter on the prototype again.
-		if (realGeolocation) Object.defineProperty(navigator, 'geolocation', realGeolocation);
-		else delete (navigator as { geolocation?: Geolocation }).geolocation;
-	});
-
-	/** Replace the browser's Geolocation; `undefined` is a browser without one. */
-	function stubGeolocation(answer: Geolocation['getCurrentPosition'] | undefined): void {
-		Object.defineProperty(navigator, 'geolocation', {
-			configurable: true,
-			value: answer === undefined ? undefined : { getCurrentPosition: answer }
-		});
-	}
-
-	function allow(): void {
-		stubGeolocation((success) =>
-			success({ coords: { latitude: 40.7336, longitude: -74.0027 } } as GeolocationPosition)
-		);
-	}
-
-	function refuse(code: number): void {
-		stubGeolocation((_, failure) =>
-			failure?.({
-				code,
-				message: '',
-				PERMISSION_DENIED: 1,
-				POSITION_UNAVAILABLE: 2,
-				TIMEOUT: 3
-			} as GeolocationPositionError)
-		);
-	}
-
-	const nearMe = () => page.getByRole('button', { name: 'Near me' });
+describe('Nearest first from a neighborhood', () => {
 	const picker = () => page.getByLabelText(/^Near neighborhood/);
-
-	it('orders the city by distance from where the browser says you are', async () => {
-		allow();
-		renderHome();
-
-		await nearMe().click();
-
-		await expect.element(page.getByText('400 m from you')).toBeInTheDocument();
-		expect(lastRequest().path).toBe('/api/spots');
-		expect(lastRequest().parameters.get('near_lat')).toBe('40.7336');
-		expect(lastRequest().parameters.get('near_lng')).toBe('-74.0027');
-	});
-
-	it('says what to do when location is refused, and asks the API for nothing', async () => {
-		refuse(1);
-		renderHome();
-
-		await nearMe().click();
-
-		await expect
-			.element(page.getByRole('alert').getByText(/blocked.*neighborhood/))
-			.toBeInTheDocument();
-		expect(calls.some((call) => call.parameters.has('near_lat'))).toBe(false);
-	});
-
-	it('says so when the browser has no location to give', async () => {
-		stubGeolocation(undefined);
-		renderHome();
-
-		await nearMe().click();
-
-		await expect
-			.element(page.getByRole('alert').getByText(/can't share your location/))
-			.toBeInTheDocument();
-	});
-
-	it('suggests trying again when finding the position failed', async () => {
-		refuse(3);
-		renderHome();
-
-		await nearMe().click();
-
-		await expect.element(page.getByRole('alert').getByText(/Try again/)).toBeInTheDocument();
-	});
 
 	it('offers the neighborhoods grouped under their boroughs', async () => {
 		renderHome();
@@ -588,6 +519,7 @@ describe('Near me', () => {
 	it('orders by distance from a chosen neighborhood', async () => {
 		renderHome();
 
+		await openFilters();
 		await picker().selectOptions('Greenwich Village');
 
 		await expect.element(page.getByText('400 m from Greenwich Village')).toBeInTheDocument();
@@ -597,6 +529,7 @@ describe('Near me', () => {
 
 	it('keeps the ordering when the next page is fetched', async () => {
 		renderHome();
+		await openFilters();
 		await picker().selectOptions('Greenwich Village');
 		await expect.element(page.getByText('Jefferson Market Library')).toBeInTheDocument();
 
@@ -608,20 +541,21 @@ describe('Near me', () => {
 	});
 
 	it('empties the search box, because a search cannot be ordered by distance', async () => {
-		allow();
 		renderHome();
 		await box().fill('library');
 		await expect.element(page.getByText('Bobst Library')).toBeInTheDocument();
 
-		await nearMe().click();
+		await openFilters();
+		await picker().selectOptions('Greenwich Village');
 
-		await expect.element(page.getByText('400 m from you')).toBeInTheDocument();
+		await expect.element(page.getByText('400 m from Greenwich Village')).toBeInTheDocument();
 		expect((box().element() as HTMLInputElement).value).toBe('');
 		expect(lastRequest().parameters.has('q')).toBe(false);
 	});
 
 	it('ends when a search is typed', async () => {
 		renderHome();
+		await openFilters();
 		await picker().selectOptions('Greenwich Village');
 		await expect.element(page.getByText('Jefferson Market Library')).toBeInTheDocument();
 
@@ -635,7 +569,9 @@ describe('Near me', () => {
 
 	it('survives Clear filters, which only clears the filters', async () => {
 		renderHome();
+		await openFilters();
 		await picker().selectOptions('Greenwich Village');
+		await openFilters();
 		await page.getByLabelText(/^Borough/).selectOptions('Bronx');
 		await expect.poll(() => lastRequest().parameters.get('borough')).toBe('Bronx');
 
@@ -649,7 +585,9 @@ describe('Near me', () => {
 
 	it('can be stopped, which goes back to the usual order', async () => {
 		renderHome();
+		await openFilters();
 		await picker().selectOptions('Greenwich Village');
+		await openFilters();
 		await page.getByLabelText(/^Borough/).selectOptions('Bronx');
 		await expect.poll(() => lastRequest().parameters.get('borough')).toBe('Bronx');
 
@@ -659,5 +597,55 @@ describe('Near me', () => {
 		expect(lastRequest().parameters.has('near_neighborhood')).toBe(false);
 		expect(lastRequest().parameters.get('borough')).toBe('Bronx');
 		await expect.element(page.getByText(/ m from /)).not.toBeInTheDocument();
+	});
+});
+
+describe('Wander', () => {
+	const wander = () => page.getByRole('button', { name: 'Wander' });
+
+	beforeEach(() => goto.mockClear());
+
+	it('opens one spot picked at random from everything the filters allow', async () => {
+		renderHome();
+		await openFilters();
+		await page.getByLabelText(/^Borough/).selectOptions('Bronx');
+		await expect.element(page.getByText('Allerton Library')).toBeInTheDocument();
+
+		await wander().click();
+
+		await expect.poll(() => goto.mock.calls.length).toBe(1);
+		expect(goto.mock.calls[0][0]).toMatch(/\/spots\/facdb:allerton$/);
+		expect(lastRequest().parameters.get('limit')).toBe('1');
+		expect(lastRequest().parameters.get('borough')).toBe('Bronx');
+	});
+
+	it('picks from the search when there is a word in the box', async () => {
+		renderHome();
+		await box().fill('library');
+
+		await wander().click();
+
+		await expect.poll(() => goto.mock.calls.length).toBe(1);
+		// Two matches: one request to count them, a second at a random offset.
+		const searches = calls.filter(
+			(call) => call.path === '/api/spots/search' && call.parameters.get('limit') === '1'
+		);
+		expect(searches).toHaveLength(2);
+		expect(searches.every((call) => call.parameters.get('q') === 'library')).toBe(true);
+		expect(Number(searches[1].parameters.get('offset'))).toBeLessThan(2);
+	});
+});
+
+describe('the search shortcut', () => {
+	it('selects what is in the box on Ctrl+K', async () => {
+		renderHome();
+		await box().fill('library');
+		(box().element() as HTMLInputElement).blur();
+
+		await userEvent.keyboard('{Control>}k{/Control}');
+
+		const input = box().element() as HTMLInputElement;
+		expect(document.activeElement).toBe(input);
+		expect([input.selectionStart, input.selectionEnd]).toEqual([0, 'library'.length]);
 	});
 });

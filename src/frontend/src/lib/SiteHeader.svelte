@@ -47,40 +47,45 @@
 			-->
 		<a class="nav-link" href="{resolve('/')}?view=map">Map</a>
 	{/if}
+	{#if session.status === 'signed-in'}
+		<a class="nav-link" href={resolve('/favourites')}>Favourites</a>
+		<a class="nav-link" href={resolve('/messages')}>Messages</a>
+	{/if}
 	{#if session.status === 'signed-in' && session.account?.account_type === 'student'}
 		<a class="nav-link" href={resolve('/people')}>People</a>
 	{/if}
 	<!--
 			Nothing until the session is known, so a prerendered "Log in" never
 			flashes at someone who is already logged in. With accounts switched
-			off there is nothing to offer at all.
+			off (as in local development) both are still shown, and both lead to
+			pages that say accounts are off rather than to a dead button.
 		-->
 	{#if session.status === 'signed-in' && session.account}
+		<span class="divider" aria-hidden="true"></span>
 		<a class="sign-in account" href={resolve('/account')}>
 			<span class="avatar" aria-hidden="true">
 				{displayName(session.account).charAt(0).toUpperCase()}
 			</span>
 			<span class="name">{displayName(session.account)}</span>
 		</a>
-	{:else if session.status === 'signed-out'}
-		<button class="nav-link" type="button" onclick={() => session.logIn(here)}>Log in</button>
+	{:else if session.status === 'signed-out' || session.status === 'disabled'}
+		<span class="divider" aria-hidden="true"></span>
+		{#if session.status === 'disabled'}
+			<a class="nav-link" href={resolve('/account')}>Log in</a>
+		{:else}
+			<button class="nav-link" type="button" onclick={() => session.logIn(here)}>Log in</button>
+		{/if}
 		<a class="sign-in" href={resolve(`/signup?returnTo=${encodeURIComponent(here)}`)}>Sign up</a>
 	{/if}
 {/snippet}
 
 <header>
-	<a class="brand" href={resolve('/')} aria-label="StudySpot home">
-		<svg viewBox="0 0 32 32" aria-hidden="true">
-			<path d="M7 7.5h18v17H7z"></path>
-			<path d="M11 12h10M11 16h10M11 20h6"></path>
-		</svg>
-		<span>StudySpot</span>
-	</a>
+	<a class="brand" href={resolve('/')} aria-label="StudySpot home">StudySpot</a>
 	<nav aria-label="Main navigation">
 		<div class="wide-links">{@render destinations()}</div>
-		<button class="nav-link menu-trigger" popovertarget={menuId} aria-label="Site navigation"
-			>Menu <span aria-hidden="true">▾</span></button
-		>
+		<button class="menu-trigger" popovertarget={menuId} aria-label="Site navigation">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5.5h12M2 10.5h12"></path></svg>
+		</button>
 		<div id={menuId} bind:this={mobileMenu} popover="auto" class="compact-links">
 			{@render destinations()}
 		</div>
@@ -88,93 +93,106 @@
 </header>
 
 <style>
+	/*
+		Linear's bar: a wordmark on the left; small, quiet links on the right
+		that light up in a pill on hover; a hairline divider; then a light
+		"Sign up" pill. Colours come from the page, so the same bar sits on
+		dark and light pages alike.
+	*/
 	header {
+		--bar-text: var(--site-header-text, var(--color-text));
+		--bar-muted: var(--site-header-muted, #6b6f76);
+		--bar-hover: var(--site-header-hover, rgb(0 0 0 / 5%));
+		--bar-rule: var(--site-header-rule, rgb(0 0 0 / 10%));
+		--bar-cta: var(--site-header-cta, #08090a);
+		--bar-cta-text: var(--site-header-cta-text, #f7f8f8);
 		display: flex;
 		width: 100%;
-		height: 76px;
+		height: 72px;
 		align-items: center;
 		justify-content: space-between;
 		margin: 0 auto;
+		font-size: 13px;
 	}
 
 	.brand {
 		display: inline-flex;
+		min-height: 32px;
 		align-items: center;
-		gap: 9px;
-		color: var(--site-brand-color, var(--color-brand-hover));
-		font-size: 20px;
-		font-weight: 750;
-		letter-spacing: -0.04em;
-	}
-
-	.brand svg {
-		width: 30px;
-		height: 30px;
-		fill: none;
-		stroke: currentColor;
-		stroke-linecap: round;
-		stroke-linejoin: round;
-		stroke-width: 2;
+		padding: 0 8px;
+		margin-left: -8px;
+		border-radius: 6px;
+		color: var(--site-brand-color, var(--bar-text));
+		font-size: 18px;
+		font-weight: 600;
+		letter-spacing: -0.03em;
 	}
 
 	nav,
 	.wide-links {
 		display: flex;
 		align-items: center;
-		gap: 8px;
 	}
 
 	.nav-link,
 	.sign-in {
 		display: inline-flex;
-		min-height: 44px;
+		min-height: 32px;
 		align-items: center;
 		justify-content: center;
-		padding: 0 14px;
-		border: 1px solid #eee9e4;
-		border-radius: 999px;
-		color: var(--color-text);
-		font-size: 14px;
-		font-weight: 650;
-		line-height: 1.2;
-		background: #fff;
+		padding: 0 12px;
+		border: 0;
+		border-radius: 9999px;
+		background: transparent;
+		color: var(--bar-muted);
+		font: inherit;
+		line-height: 1.5;
 		cursor: pointer;
-		transition: background-color 150ms ease;
+		transition:
+			color 120ms ease,
+			background-color 120ms ease;
 	}
 
 	.nav-link:hover {
-		background: #f7f1eb;
+		background: var(--bar-hover);
+		color: var(--bar-text);
+	}
+
+	.divider {
+		width: 1px;
+		height: 16px;
+		margin: 0 12px;
+		background: var(--bar-rule);
 	}
 
 	.sign-in {
-		min-width: 88px;
-		margin-left: 4px;
-		border-color: #222;
-		color: #fff;
-		background: #222;
+		margin-left: 8px;
+		background: var(--bar-cta);
+		color: var(--bar-cta-text);
+		font-weight: 510;
 	}
 
 	.sign-in:hover {
-		background: #3a3a3a;
+		opacity: 0.88;
 	}
 
 	.account {
 		gap: 8px;
 		max-width: 220px;
-		padding-left: 6px;
+		padding-left: 4px;
 	}
 
 	.avatar {
 		display: inline-grid;
-		width: 30px;
-		height: 30px;
+		width: 24px;
+		height: 24px;
 		flex: none;
 		place-items: center;
 		border-radius: 50%;
-		color: #fff;
-		font-size: 13px;
-		font-weight: 750;
 		background: var(--color-brand-hover);
+		color: #fff;
+		font-size: 11px;
+		font-weight: 650;
 	}
 
 	.name {
@@ -183,51 +201,81 @@
 		white-space: nowrap;
 	}
 
+	.brand:focus-visible,
 	.nav-link:focus-visible,
-	.sign-in:focus-visible {
-		outline: 3px solid var(--color-brand-hover);
-		outline-offset: 3px;
+	.sign-in:focus-visible,
+	.menu-trigger:focus-visible {
+		outline: 2px solid var(--bar-text);
+		outline-offset: 2px;
 	}
 
 	.menu-trigger,
 	.compact-links {
 		display: none;
 	}
-	.brand:focus-visible {
-		outline: 3px solid var(--color-brand-hover);
-		outline-offset: 2px;
+
+	.menu-trigger {
+		width: 40px;
+		height: 40px;
+		place-items: center;
+		margin-right: -8px;
+		padding: 0;
+		border: 0;
+		border-radius: 8px;
+		background: transparent;
+		color: var(--bar-text);
+		cursor: pointer;
 	}
+
+	.menu-trigger svg {
+		width: 18px;
+		height: 18px;
+		fill: none;
+		stroke: currentColor;
+		stroke-linecap: round;
+		stroke-width: 1.5;
+	}
+
 	@media (max-width: 740px) {
 		header {
 			height: 56px;
-			gap: 8px;
 		}
+
 		.wide-links {
 			display: none;
 		}
+
 		.menu-trigger {
-			display: inline-flex;
-			gap: 6px;
+			display: inline-grid;
 		}
+
 		.compact-links:popover-open {
 			position: fixed;
-			inset: 52px 10px auto auto;
-			margin: 0;
 			display: grid;
-			gap: 4px;
 			width: min(15rem, calc(100vw - 20px));
 			max-height: calc(100dvh - 60px);
-			overflow: auto;
-			background: var(--site-menu-bg, white);
-			padding: 8px;
-			border: 1px solid var(--site-menu-border, #ddd);
-			border-radius: 12px;
-			box-shadow: 0 8px 22px #0002;
-		}
-		.compact-links :is(.nav-link, .sign-in) {
 			margin: 0;
+			padding: 6px;
+			overflow: auto;
+			border: 1px solid var(--site-menu-border, var(--bar-rule));
+			border-radius: 12px;
+			background: var(--site-menu-bg, white);
+			box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
+			gap: 2px;
+			inset: 52px 10px auto auto;
+		}
+
+		.compact-links .divider {
+			width: auto;
+			height: 1px;
+			margin: 4px 6px;
+		}
+
+		.compact-links :is(.nav-link, .sign-in) {
 			max-width: 100%;
 			justify-content: flex-start;
+			margin: 0;
+			border-radius: 8px;
 		}
 	}
 </style>

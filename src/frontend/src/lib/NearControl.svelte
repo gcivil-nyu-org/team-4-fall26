@@ -6,35 +6,15 @@
 		neighborhoods: NeighborhoodGroup[];
 		/** The point results are ordered from, or null for the usual order. */
 		near: Near | null;
-		locating: boolean;
-		/** Why Near me did not work, in words for the reader; empty when it did. */
-		notice: string;
-		onLocate: () => void;
 		onNeighborhood: (name: string) => void;
 		onClear: () => void;
 	};
 
-	let { neighborhoods, near, locating, notice, onLocate, onNeighborhood, onClear }: Props =
-		$props();
+	let { neighborhoods, near, onNeighborhood, onClear }: Props = $props();
 </script>
 
 <div class="near" role="group" aria-label="Sort by distance">
 	<div class="near-row">
-		<button
-			type="button"
-			class="locate"
-			aria-pressed={near?.kind === 'point'}
-			disabled={locating}
-			onclick={onLocate}
-		>
-			<svg viewBox="0 0 24 24" aria-hidden="true">
-				<circle cx="12" cy="12" r="3.2" />
-				<path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" />
-				<circle cx="12" cy="12" r="7" />
-			</svg>
-			{locating ? 'Finding you…' : 'Near me'}
-		</button>
-
 		<label class="field">
 			<span>Near neighborhood</span>
 			<!--
@@ -72,10 +52,6 @@
 			<button type="button" class="clear" onclick={onClear}>Stop sorting by distance</button>
 		</p>
 	{/if}
-
-	{#if notice}
-		<p class="notice" role="alert">{notice}</p>
-	{/if}
 </div>
 
 <style>
@@ -83,129 +59,71 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		padding: 12px 0;
 	}
 
 	.near-row {
 		display: grid;
-		grid-template-columns: auto minmax(0, 1fr);
-		gap: 12px;
 	}
 
-	.locate {
-		display: inline-flex;
-		min-height: 60px;
-		align-items: center;
-		gap: 8px;
-		padding: 0 20px;
-		border: 1px solid #f0ebe7;
-		border-radius: 16px;
-		color: var(--color-text);
-		background: #faf8f6;
-		font-size: 14px;
-		font-weight: 700;
-		cursor: pointer;
-	}
-
-	.locate[aria-pressed='true'] {
-		border-color: var(--color-brand-hover);
-		color: var(--color-brand-hover);
-	}
-
-	.locate:disabled {
-		cursor: progress;
-		opacity: 0.7;
-	}
-
-	.locate:focus-visible,
 	.clear:focus-visible,
 	select:focus-visible {
-		outline: 2px solid var(--color-brand-hover);
+		outline: 2px solid var(--ln-brand-hover, #7170ff);
 		outline-offset: 2px;
-	}
-
-	.locate svg {
-		width: 18px;
-		height: 18px;
-		fill: none;
-		stroke: currentColor;
-		stroke-linecap: round;
-		stroke-width: 1.8;
 	}
 
 	.field {
 		display: flex;
 		min-width: 0;
-		min-height: 60px;
+		min-height: 56px;
 		flex-direction: column;
 		justify-content: center;
 		gap: 4px;
 		padding: 9px 14px;
-		border: 1px solid #f0ebe7;
-		border-radius: 16px;
-		background: #faf8f6;
+		border: 1px solid var(--ln-border, rgb(255 255 255 / 8%));
+		border-radius: 10px;
+		background: var(--ln-surface, #141516);
 	}
 
 	.field > span {
-		color: #6a625d;
-		font-size: 11px;
-		font-weight: 750;
-		letter-spacing: 0.06em;
+		color: var(--ln-muted, #8a8f98);
+		font-size: 12px;
+		font-weight: 500;
 		line-height: 1.2;
-		text-transform: uppercase;
 	}
 
 	select {
 		width: 100%;
 		min-width: 0;
-		min-height: 28px;
+		min-height: 26px;
 		padding: 0 20px 0 0;
 		border: 0;
-		color: var(--color-text);
 		background-color: transparent;
+		color: var(--ln-text, #f7f8f8);
 		font-size: 14px;
-		font-weight: 650;
-	}
-
-	.sorted,
-	.notice {
-		margin: 0;
-		padding: 0 6px;
-		font-size: 13px;
-		line-height: 1.5;
+		font-weight: 500;
+		color-scheme: dark;
 	}
 
 	.sorted {
-		color: var(--color-muted);
-	}
-
-	.notice {
-		color: var(--color-brand-hover);
-		font-weight: 600;
+		margin: 0;
+		padding: 0 6px;
+		color: var(--ln-muted, #8a8f98);
+		font-size: 13px;
+		line-height: 1.5;
 	}
 
 	.clear {
 		min-height: 32px;
 		padding: 0 6px;
 		border: 0;
-		color: var(--color-brand-hover);
 		background: transparent;
+		color: var(--ln-brand-hover, #7170ff);
 		font-size: 13px;
-		font-weight: 700;
+		font-weight: 500;
 		cursor: pointer;
 	}
 
 	.clear:hover {
 		text-decoration: underline;
-	}
-
-	@media (max-width: 560px) {
-		.near-row {
-			grid-template-columns: 1fr;
-		}
-
-		.locate {
-			justify-content: center;
-		}
 	}
 </style>

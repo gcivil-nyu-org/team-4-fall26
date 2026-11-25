@@ -3,38 +3,15 @@
 	import { createCanvasSearchBackgroundRenderer } from './search-background-canvas';
 	import type { Point, Stroke } from './search-background-canvas';
 
-	// A pointer over the opaque panel lights up the closest visible strip.
-	function visiblePoint(x: number, y: number, panel: DOMRect, frame: DOMRect) {
-		const left = panel.left - frame.left;
-		const right = panel.right - frame.left;
-		const top = panel.top - frame.top;
-		const bottom = panel.bottom - frame.top;
-		if (x <= left || x >= right || y <= top || y >= bottom) return { x, y };
-
-		const nearest = Math.min(
-			left > 0 ? x - left : Infinity,
-			right < frame.width ? right - x : Infinity,
-			top > 0 ? y - top : Infinity,
-			bottom < frame.height ? bottom - y : Infinity
-		);
-		if (nearest === x - left) return { x: left - Math.min(45, left / 2), y };
-		if (nearest === right - x) return { x: right + Math.min(45, (frame.width - right) / 2), y };
-		if (nearest === y - top) return { x, y: top - Math.min(45, top / 2) };
-		if (nearest === bottom - y) return { x, y: bottom + Math.min(45, (frame.height - bottom) / 2) };
-		return { x, y };
-	}
-
 	let canvas: HTMLCanvasElement;
 	let ready = $state(false);
 	let playing = $state(true);
 	let toggleMotion = $state<(() => void) | undefined>();
 
 	onMount(() => {
-		const searchPanel = canvas.parentElement?.querySelector('[data-search-panel]');
 		const painter = createCanvasSearchBackgroundRenderer(canvas);
-		if (!searchPanel || !painter) return;
+		if (!painter) return;
 
-		const panel = searchPanel;
 		const renderer = painter;
 		let pointer: { raw: Point; visible: Point } | undefined;
 		let lastPointer: typeof pointer;
@@ -103,11 +80,9 @@
 				leave();
 				return;
 			}
-			const visible = visiblePoint(x, y, panel.getBoundingClientRect(), bounds);
-			pointer = {
-				raw: { x, y: bounds.height - y },
-				visible: { x: visible.x, y: bounds.height - visible.y }
-			};
+			// Nothing covers the background any more, so the wake follows the pointer.
+			const point = { x, y: bounds.height - y };
+			pointer = { raw: point, visible: point };
 		}
 
 		function leave() {

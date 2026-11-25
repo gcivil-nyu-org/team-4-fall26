@@ -107,10 +107,14 @@
 
 	/** Whether the filter menu is open. Closed, its controls still apply. */
 	let filtersOpen = $state(false);
-	/** How many filters are narrowing or ordering the results, for the menu's badge. */
+	/**
+	 * How many filters are narrowing or ordering the results, for the menu's
+	 * badge. `false` counts: "Purchase required" is no_purchase_needed=false, a
+	 * real filter. An unticked checkbox removes its key instead.
+	 */
 	let activeFilters = $derived(
-		Object.values(filters).filter((value) => value !== undefined && value !== '' && value !== false)
-			.length + (near ? 1 : 0)
+		Object.values(filters).filter((value) => value !== undefined && value !== '').length +
+			(near ? 1 : 0)
 	);
 
 	let wandering = $state(false);

@@ -203,13 +203,28 @@
 			const spent = stirring * (1 - Math.pow(1 - SETTLE, elapsed / 16.67));
 			progress += spent;
 			stirring -= spent;
-			// Off screen the stream keeps flowing; it just isn't drawn.
-			if (visible) draw();
+			draw();
+			frame = requestAnimationFrame(tick);
+		}
+
+		/*
+			The stream only flows near the screen, and not at all for someone who
+			asked for less motion: they get the spiral drawn once, standing still,
+			with every picture and the button where they would be.
+		*/
+		const motion = matchMedia('(prefers-reduced-motion: reduce)');
+
+		function play() {
+			cancelAnimationFrame(frame);
+			frame = 0;
+			if (!visible || motion.matches) return;
+			last = 0;
 			frame = requestAnimationFrame(tick);
 		}
 
 		/* Turning the pointer around the centre turns the spiral the same way. */
 		function stir(event: PointerEvent) {
+			if (motion.matches) return;
 			const bounds = section.getBoundingClientRect();
 			const dx = event.clientX - bounds.left - bounds.width / 2;
 			const dy = event.clientY - bounds.top - bounds.height / 2;
@@ -238,6 +253,7 @@
 		const seen = new IntersectionObserver(
 			([entry]) => {
 				visible = entry?.isIntersecting ?? true;
+				play();
 			},
 			{ rootMargin: '300px 0px' }
 		);
@@ -245,12 +261,15 @@
 		measure();
 		size.observe(section);
 		seen.observe(section);
-		frame = requestAnimationFrame(tick);
+		requestAnimationFrame(draw);
+		play();
+		motion.addEventListener('change', play);
 		section.addEventListener('pointermove', stir);
 		section.addEventListener('pointerleave', forget);
 		section.addEventListener('pointercancel', forget);
 		return () => {
 			cancelAnimationFrame(frame);
+			motion.removeEventListener('change', play);
 			size.disconnect();
 			seen.disconnect();
 			section.removeEventListener('pointermove', stir);

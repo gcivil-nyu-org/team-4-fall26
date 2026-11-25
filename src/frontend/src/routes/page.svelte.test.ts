@@ -299,6 +299,16 @@ function facetRequests() {
 	return calls.filter((call) => call.path === '/api/spots/facets');
 }
 
+describe('the Filters badge', () => {
+	it('counts a filter set to false, which narrows like any other', async () => {
+		renderHome();
+
+		await openFilters();
+		await page.getByLabelText(/^Cost policy/).selectOptions('Purchase required');
+		await expect.element(page.getByRole('button', { name: 'Filters 1' })).toBeInTheDocument();
+	});
+});
+
 describe('the filter counts', () => {
 	it('are fetched for the whole snapshot on arrival', async () => {
 		renderHome();

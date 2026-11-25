@@ -104,6 +104,9 @@
 		window.addEventListener('pointermove', move, { capture: true, passive: true });
 		document.documentElement.addEventListener('pointerleave', leave);
 		document.addEventListener('visibilitychange', syncAnimation);
+		// Still for anyone who asked for less motion: the first frame is drawn
+		// and the button offers to play it.
+		playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
 		resize();
 		syncAnimation();
 		ready = true;

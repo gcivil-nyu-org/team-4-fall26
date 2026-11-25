@@ -6,7 +6,7 @@ Sign-up starts on StudySpot's own page, `/signup`. It asks whether the account i
 
 StudySpot keeps an `Account` row per person, recording whether they are a student or a business owner.
 
-Accounts are switched off by default. Communities and chat remain open to browser-session guests (see [Communities](communities.md)). Set `STUDYSPOT_ACCOUNTS=true` alongside the Auth0 settings to turn sign-in on. While it is off, or with no Auth0 settings, `GET /auth/config` reports `{"enabled": false}` and bearer tokens are refused with a `401`. The header hides login and Favourites navigation, Save and Unsave controls are hidden, and public search and spot details remain available.
+Accounts are switched off by default. Communities and chat remain open to browser-session guests (see [Communities](communities.md)). Set `STUDYSPOT_ACCOUNTS=true` alongside the Auth0 settings to turn sign-in on. While it is off, or with no Auth0 settings, `GET /auth/config` reports `{"enabled": false}` and bearer tokens are refused with a `401`. The header hides Favourites, People and Messages; its Log in and Sign up links stay, and lead to pages that say accounts are off. Save and Unsave controls are hidden, and public search and spot details remain available.
 
 ## How it fits together
 

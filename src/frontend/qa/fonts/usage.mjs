@@ -91,7 +91,8 @@ for (const route of ROUTES) {
 					['kerning', style.fontKerning],
 					['optical-sizing', style.fontOpticalSizing]
 				])
-					if (value && value !== 'normal' && value !== 'auto') add(entry.features, `${property}:${value}`);
+					if (value && value !== 'normal' && value !== 'auto')
+						add(entry.features, `${property}:${value}`);
 				if (style.hyphens === 'auto') entry.hyphens = true;
 			};
 			const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);

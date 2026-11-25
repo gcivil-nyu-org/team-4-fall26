@@ -25,11 +25,11 @@ measured, shown to change nothing in a real browser, and reverted.
 
 ## Results
 
-| Step | Profile | LCP ms | CLS | Long tasks (ms) | Requests | Bytes at load | JS | Fonts | API | Tiles | Images |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| baseline | desktop | 844 | 0.0021 | 8 (1585) | 60 | 1,689,545 | 465,036 | 468,759 | 41,349 | 448,983 | 207,976 |
-| 03 phone loads when near | desktop | 812 | 0.0021 | 3 (942) | 41 | 890,306 | 162,154 | 468,759 | 4,427 | 0 | 207,978 |
-| baseline | slow-3g | 3416 | 0.0004 | 164 (14449) | 50 | 1,066,964 | 465,036 | 468,759 | 41,349 | 34,378 | 0 |
-| 03 phone loads when near | slow-3g | 3404 | 0.0004 | 186 (13904) | 37 | 682,328 | 162,154 | 468,759 | 4,427 | 0 | 0 |
+| Step                     | Profile | LCP ms | CLS    | Long tasks (ms) | Requests | Bytes at load | JS      | Fonts   | API    | Tiles   | Images  |
+| ------------------------ | ------- | ------ | ------ | --------------- | -------- | ------------- | ------- | ------- | ------ | ------- | ------- |
+| baseline                 | desktop | 844    | 0.0021 | 8 (1585)        | 60       | 1,689,545     | 465,036 | 468,759 | 41,349 | 448,983 | 207,976 |
+| 03 phone loads when near | desktop | 812    | 0.0021 | 3 (942)         | 41       | 890,306       | 162,154 | 468,759 | 4,427  | 0       | 207,978 |
+| baseline                 | slow-3g | 3416   | 0.0004 | 164 (14449)     | 50       | 1,066,964     | 465,036 | 468,759 | 41,349 | 34,378  | 0       |
+| 03 phone loads when near | slow-3g | 3404   | 0.0004 | 186 (13904)     | 37       | 682,328       | 162,154 | 468,759 | 4,427  | 0       | 0       |
 
 Baseline is commit 72c050a (the homepage build fix, otherwise the branch as it was).

@@ -191,7 +191,12 @@
 		created_at: string;
 	};
 
-	let spotId = $state('');
+	// Starts on the first seat rather than empty, so the prerendered "Open" link
+	// already names a real page: an empty id renders `/spots/`, which does not
+	// exist and fails the build's prerender crawl. Only the initial value is
+	// wanted: after this, the reader's pick decides.
+	// svelte-ignore state_referenced_locally
+	let spotId = $state(seats[0]?.id ?? '');
 	let reviews = $state<Review[]>([]);
 	let reviewsState = $state<'loading' | 'ready' | 'error'>('loading');
 	let reviewSearch = 0;

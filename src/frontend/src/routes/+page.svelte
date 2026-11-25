@@ -16,6 +16,7 @@
 	import SearchBackground from '$lib/SearchBackground.svelte';
 	import SearchBar from '$lib/SearchBar.svelte';
 	import SiteHeader from '$lib/SiteHeader.svelte';
+	import homeFonts from '$lib/fonts/home.css?raw';
 	import SpotResults from '$lib/SpotResults.svelte';
 	import SpotFiltersBar from '$lib/SpotFilters.svelte';
 	import type LocomotiveScroll from 'locomotive-scroll';
@@ -33,6 +34,14 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+
+	/**
+	 * The font cores to preload: only Inter's, which the hero sets. The others
+	 * are first drawn several screens down; preloading them too (250 KB of
+	 * Newsreader alone) made no measurable difference to LCP on desktop or on
+	 * slow 3G, so it would only move bytes earlier for nothing.
+	 */
+	const HOME_FONT_CORES = ['/fonts/inter-core.woff2'] as const;
 
 	onMount(() => {
 		const motion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -440,6 +449,19 @@
 
 <svelte:head>
 	<title>StudySpot</title>
+	<!--
+		The homepage's own fonts: Inter, Inter Tight and the pixel face, self-hosted and
+		subset by fonts/subset.py (Newsreader and Instrument Serif are global, in
+		layout.css). Inlined rather than imported so they leave with the page, as the
+		Google Fonts stylesheet they replace did: the chat pages declare a different
+		Inter, and the two must not meet. Inter's core is preloaded; the
+		extended files load only when a page draws one of their characters.
+	-->
+	{#each HOME_FONT_CORES as href (href)}
+		<link rel="preload" {href} as="font" type="font/woff2" crossorigin="anonymous" />
+	{/each}
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- generated CSS from the repo, not user input -->
+	{@html `<style>${homeFonts}</style>`}
 	<meta
 		name="description"
 		content="Discover cafés and other NYC third places where students can meet and study."

@@ -139,14 +139,6 @@
 	}
 </script>
 
-<svelte:head>
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link
-		rel="stylesheet"
-		href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
-	/>
-</svelte:head>
-
 {#snippet bullets(seat: Seat)}
 	{#each orderByTrunk(seat.subway_routes.split(' ')) as route (route)}
 		<span class="bullet" style:background={routeColour(route)} style:color={routeTextColour(route)}
@@ -459,7 +451,8 @@
 		border: 0;
 		background: transparent;
 		color: var(--ink);
-		font-family: 'Press Start 2P', ui-monospace, monospace;
+		/* Press Start 2P, renamed: its licence reserves the name for the unmodified font. */
+		font-family: 'StudySpot Pixel', ui-monospace, monospace;
 		font-size: 14px;
 		cursor: pointer;
 	}

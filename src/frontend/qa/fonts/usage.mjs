@@ -9,7 +9,8 @@
 // font sizes (for optical size), and whether `hyphens: auto` could add U+2010.
 // Also lists which font files each page downloaded. Text is credited to the first
 // family in the computed font-family list that the page declares with @font-face or
-// loads from Google Fonts; system fallbacks are ignored.
+// loads from Google Fonts; system fallbacks are ignored. Families are reported separately
+// for the homepage and the other routes, because "Inter" is a different file on each.
 import { chromium } from 'playwright';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:7600';
@@ -32,7 +33,7 @@ const browser = await chromium.launch({
 const result = { families: {}, pages: {} };
 
 for (const route of ROUTES) {
-	for (const width of [1440, 390]) {
+	for (const width of [360, 390, 768, 1024, 1280, 1440, 1920]) {
 		const page = await browser.newPage({ viewport: { width, height: 900 } });
 		const fonts = new Set();
 		page.on('response', (response) => {
@@ -117,7 +118,8 @@ for (const route of ROUTES) {
 		});
 		result.pages[`${route} @${width}`] = [...fonts].sort();
 		for (const [family, entry] of Object.entries(found)) {
-			const merged = (result.families[family] ??= {
+			const key = `${family} on ${route === '/' ? 'home' : 'other pages'}`;
+			const merged = (result.families[key] ??= {
 				chars: new Set(),
 				weights: new Set(),
 				styles: new Set(),

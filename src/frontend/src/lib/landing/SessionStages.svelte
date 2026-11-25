@@ -764,14 +764,6 @@
 	</div>
 {/snippet}
 
-<svelte:head>
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link
-		rel="stylesheet"
-		href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@900&family=Inter:wght@300;400;600;700&display=swap"
-	/>
-</svelte:head>
-
 <section
 	class="blast"
 	aria-labelledby="blast-title"

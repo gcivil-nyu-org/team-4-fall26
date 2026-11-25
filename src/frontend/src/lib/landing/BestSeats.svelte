@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
+	import { flip } from 'svelte/animate';
+	import { fly, scale } from 'svelte/transition';
 	import type { BoroughSeats, Seat } from '$lib/server/snapshot';
 	import { place, readableCategory } from '$lib/spot';
 	import { orderByTrunk, routeColour, routeTextColour, walkMinutes } from '$lib/subway';
@@ -16,15 +19,94 @@
 	] as const;
 
 	let selected = $state(0);
-	/** The row whose card is showing, or null when none is. */
-	let previewing = $state<number | null>(null);
+	/** The seat whose card is showing, or null when none is. */
+	let previewing = $state<string | null>(null);
 	let pointer = $state({ x: 0, y: 0 });
 	let list = $state<HTMLElement | null>(null);
 
 	const current = $derived(boroughs[selected]);
-	const preview = $derived<Seat | null>(
-		previewing === null ? null : (current?.seats[previewing] ?? null)
+
+	/*
+		Votes. Each seat starts with a count of its own -- made up, but the same
+		on every visit, so the list does not reshuffle on reload. Each heart adds
+		one more, like a clap, as many times as you like, and the list re-sorts
+		the moment it lands. The starting counts sit close together so
+		a few votes can carry a seat up. Your votes are kept in this browser
+		only; there is no server tally yet.
+	*/
+	const VOTES_KEY = 'studyspot:seat-votes';
+	let mine = $state<Record<string, number>>({});
+
+	/** A stable number in [0, 1) from a seat's id. */
+	function seeded(id: string): number {
+		let hash = 2166136261;
+		for (const char of id) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+		return (hash >>> 0) / 4294967296;
+	}
+
+	const votes = (seat: Seat) => 24 + Math.floor(seeded(seat.id) * 18) + (mine[seat.id] ?? 0);
+
+	/** Most votes first; ties keep the nearest-train order they arrived in. */
+	const ranked = $derived(
+		[...(current?.seats ?? [])]
+			.map((seat, order) => ({ seat, order, count: votes(seat) }))
+			.sort((a, b) => b.count - a.count || a.order - b.order)
 	);
+
+	/*
+		The heart is drawn like a video game's: pixels on a 9 x 8 grid, filled
+		in red with a highlight once you have given any, and every press throws
+		a "+1" up off it that fades as it rises.
+	*/
+	const HEART = [
+		'.XX...XX.',
+		'XXXX.XXXX',
+		'XXXXXXXXX',
+		'XXXXXXXXX',
+		'.XXXXXXX.',
+		'..XXXXX..',
+		'...XXX...',
+		'....X....'
+	];
+	const HEART_PIXELS = HEART.flatMap((row, y) =>
+		[...row].flatMap((cell, x) => (cell === 'X' ? [{ x, y }] : []))
+	);
+
+	let pops = $state<{ id: number; seat: string; drift: number }[]>([]);
+	let nextPop = 0;
+
+	function vote(seat: Seat) {
+		mine = { ...mine, [seat.id]: (mine[seat.id] ?? 0) + 1 };
+		const pop = { id: nextPop++, seat: seat.id, drift: Math.round(Math.random() * 24 - 12) };
+		pops = [...pops, pop];
+		setTimeout(() => (pops = pops.filter((other) => other.id !== pop.id)), 700);
+		try {
+			localStorage.setItem(VOTES_KEY, JSON.stringify(mine));
+		} catch {
+			// Private windows and blocked storage: the vote still counts for this visit.
+		}
+	}
+
+	onMount(() => {
+		try {
+			const saved: unknown = JSON.parse(localStorage.getItem(VOTES_KEY) ?? '{}');
+			if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+				mine = Object.fromEntries(
+					Object.entries(saved).filter(
+						(entry): entry is [string, number] => Number.isSafeInteger(entry[1]) && entry[1] > 0
+					)
+				);
+			}
+		} catch {
+			// Nothing saved, or storage unavailable: start without votes.
+		}
+	});
+
+	const preview = $derived<Seat | null>(
+		current?.seats.find((seat) => seat.id === previewing) ?? null
+	);
+	/** Where the previewed seat sits in the list, for its card colour. */
+	const previewRank = $derived(ranked.findIndex(({ seat }) => seat.id === previewing));
 	const tabIds = $derived(boroughs.map((group) => `seats-tab-${group.borough.replace(' ', '-')}`));
 
 	function follow(event: PointerEvent) {
@@ -34,12 +116,12 @@
 	}
 
 	/** Keyboard focus has no pointer, so the card sits beside the focused row. */
-	function focusRow(index: number, row: HTMLElement) {
+	function focusRow(id: string, row: HTMLElement) {
 		if (!list) return;
 		const bounds = list.getBoundingClientRect();
 		const box = row.getBoundingClientRect();
 		pointer = { x: bounds.width * 0.62, y: box.top - bounds.top + box.height / 2 };
-		previewing = index;
+		previewing = id;
 	}
 
 	function choose(index: number) {
@@ -57,6 +139,14 @@
 	}
 </script>
 
+<svelte:head>
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	<link
+		rel="stylesheet"
+		href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+	/>
+</svelte:head>
+
 {#snippet bullets(seat: Seat)}
 	{#each orderByTrunk(seat.subway_routes.split(' ')) as route (route)}
 		<span class="bullet" style:background={routeColour(route)} style:color={routeTextColour(route)}
@@ -68,10 +158,10 @@
 {#if boroughs.length > 0}
 	<section class="seats" aria-labelledby="seats-title">
 		<header>
-			<h2 id="seats-title">The best seats in your city</h2>
+			<h2 id="seats-title">The city's favourite spots</h2>
 			<p class="rule">
-				Free to sit, a Wi-Fi hotspot nearby, and a step-free station close by. Five per borough,
-				nearest train first.
+				Five free third places per borough, each with Wi-Fi nearby and a step-free station close by.
+				Heart the ones you keep going back to, and watch them climb.
 			</p>
 		</header>
 
@@ -104,28 +194,50 @@
 			onpointerleave={() => (previewing = null)}
 		>
 			<ol>
-				{#each current?.seats ?? [] as seat, i (seat.id)}
-					<li>
+				{#each ranked as { seat, count }, i (seat.id)}
+					{@const given = mine[seat.id] ?? 0}
+					<li class="row" animate:flip={{ duration: 450 }}>
+						<span class="index" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
 						<a
-							class="row"
+							class="name"
 							href={resolve(`/spots/${seat.id}` as '/')}
-							onpointerenter={() => (previewing = i)}
-							onfocus={(event) => focusRow(i, event.currentTarget)}
+							onpointerenter={() => (previewing = seat.id)}
+							onfocus={(event) => focusRow(seat.id, event.currentTarget)}
 							onblur={() => (previewing = null)}
 						>
-							<span class="index" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
 							<span class="roll">
 								<span>{seat.name}</span>
 								<span aria-hidden="true">{seat.name}</span>
 							</span>
-							<span class="meta">
-								<span>{seat.neighborhood ?? seat.borough}</span>
-								<span class="train">
-									{@render bullets(seat)}
-									{walkMinutes(seat.subway_metres)} min walk
-								</span>
-							</span>
 						</a>
+						<button
+							type="button"
+							class="vote"
+							class:voted={given > 0}
+							aria-label="Heart {seat.name}, {count} hearts"
+							onclick={() => vote(seat)}
+						>
+							{#key count}
+								<svg
+									class="heart"
+									viewBox="0 0 9 8"
+									shape-rendering="crispEdges"
+									aria-hidden="true"
+									in:scale={{ start: 1.5, duration: 220 }}
+								>
+									{#each HEART_PIXELS as pixel (`${pixel.x},${pixel.y}`)}
+										<rect x={pixel.x} y={pixel.y} width="1" height="1" />
+									{/each}
+									{#if given > 0}<rect class="shine" x="1" y="1" width="1" height="1" />{/if}
+								</svg>
+							{/key}
+							<span class="count">
+								{#key count}<span in:fly={{ y: 10, duration: 200 }}>×{count}</span>{/key}
+							</span>
+							{#each pops.filter((pop) => pop.seat === seat.id) as pop (pop.id)}
+								<span class="pop" aria-hidden="true" style:--drift="{pop.drift}px">+1</span>
+							{/each}
+						</button>
 					</li>
 				{/each}
 				<li>
@@ -140,8 +252,8 @@
 				</li>
 			</ol>
 
-			{#if preview && previewing !== null}
-				{@const [from, to] = CARD_COLOURS[previewing % CARD_COLOURS.length]}
+			{#if preview}
+				{@const [from, to] = CARD_COLOURS[Math.max(0, previewRank) % CARD_COLOURS.length]}
 				<div
 					class="card"
 					aria-hidden="true"
@@ -284,7 +396,8 @@
 	}
 
 	.row:hover .roll span,
-	.row:focus-visible .roll span {
+	.row:focus-visible .roll span,
+	.name:focus-visible .roll span {
 		transform: translateY(-100%);
 	}
 
@@ -297,7 +410,6 @@
 		text-align: right;
 	}
 
-	.train,
 	.card-train {
 		display: inline-flex;
 		align-items: center;
@@ -314,9 +426,99 @@
 		place-items: center;
 	}
 
-	.train .bullet:last-of-type,
 	.card-train .bullet:last-of-type {
 		margin-right: 4px;
+	}
+
+	.name {
+		min-width: 0;
+		color: inherit;
+	}
+
+	.name:focus-visible {
+		border-radius: 4px;
+		outline: 2px solid var(--ink);
+		outline-offset: 4px;
+	}
+
+	/* The vote: no button chrome, just a game's heart and its counter. */
+	.vote {
+		position: relative;
+		display: inline-flex;
+		min-width: 112px;
+		height: 48px;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 12px;
+		padding: 0 4px;
+		border: 0;
+		background: transparent;
+		color: var(--ink);
+		font-family: 'Press Start 2P', ui-monospace, monospace;
+		font-size: 14px;
+		cursor: pointer;
+	}
+
+	.vote:focus-visible {
+		border-radius: 4px;
+		outline: 2px solid var(--ink);
+		outline-offset: 3px;
+	}
+
+	.heart {
+		width: 27px;
+		height: 24px;
+		fill: #5c5850;
+		transition:
+			transform 160ms steps(3),
+			fill 120ms steps(2);
+	}
+
+	.vote:hover .heart {
+		transform: translateY(-2px);
+	}
+
+	.vote:active .heart {
+		transform: scale(0.85);
+	}
+
+	.voted .heart {
+		fill: #ff2e4d;
+	}
+
+	.heart .shine {
+		fill: #ffd5dc;
+	}
+
+	/* "+1", thrown up off the heart, rising and fading in a few hard steps. */
+	.pop {
+		position: absolute;
+		top: -6px;
+		right: 52px;
+		color: #ff2e4d;
+		font-size: 12px;
+		pointer-events: none;
+		text-shadow: 2px 2px 0 #0d0d0b;
+		animation: pop 700ms steps(7) forwards;
+	}
+
+	@keyframes pop {
+		to {
+			opacity: 0;
+			transform: translate(var(--drift), -42px);
+		}
+	}
+
+	/* One line tall, so the old number slides out as the new one slides in. */
+	.count {
+		display: inline-grid;
+		overflow: hidden;
+		height: 1.2em;
+		line-height: 1.2;
+	}
+
+	.count > span {
+		grid-area: 1 / 1;
 	}
 
 	.all .roll {
@@ -404,6 +606,9 @@
 
 	@media (prefers-reduced-motion: reduce) {
 		.roll span,
+		.vote,
+		.heart,
+		.pop,
 		.card {
 			transition: none;
 		}
@@ -411,7 +616,19 @@
 
 	@media (max-width: 700px) {
 		.row {
-			grid-template-columns: 32px minmax(0, 1fr);
+			grid-template-columns: 32px minmax(0, 1fr) auto;
+		}
+
+		.vote {
+			min-width: 84px;
+			height: 40px;
+			gap: 8px;
+			font-size: 11px;
+		}
+
+		.heart {
+			width: 22px;
+			height: 20px;
 		}
 
 		.meta {

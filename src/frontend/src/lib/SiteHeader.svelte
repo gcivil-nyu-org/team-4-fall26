@@ -61,7 +61,6 @@
 			pages that say accounts are off rather than to a dead button.
 		-->
 	{#if session.status === 'signed-in' && session.account}
-		<span class="divider" aria-hidden="true"></span>
 		<a class="sign-in account" href={resolve('/account')}>
 			<span class="avatar" aria-hidden="true">
 				{displayName(session.account).charAt(0).toUpperCase()}
@@ -69,7 +68,6 @@
 			<span class="name">{displayName(session.account)}</span>
 		</a>
 	{:else if session.status === 'signed-out' || session.status === 'disabled'}
-		<span class="divider" aria-hidden="true"></span>
 		{#if session.status === 'disabled'}
 			<a class="nav-link" href={resolve('/account')}>Log in</a>
 		{:else}
@@ -95,8 +93,7 @@
 <style>
 	/*
 		Linear's bar: a wordmark on the left; small, quiet links on the right
-		that light up in a pill on hover; a hairline divider; then a light
-		"Sign up" pill. Colours come from the page, so the same bar sits on
+		that light up in a pill on hover; then a light "Sign up" pill. Colours come from the page, so the same bar sits on
 		dark and light pages alike.
 	*/
 	header {
@@ -108,7 +105,7 @@
 		--bar-cta-text: var(--site-header-cta-text, #f7f8f8);
 		display: flex;
 		width: 100%;
-		height: 72px;
+		height: 60px;
 		align-items: center;
 		justify-content: space-between;
 		margin: 0 auto;
@@ -156,13 +153,6 @@
 	.nav-link:hover {
 		background: var(--bar-hover);
 		color: var(--bar-text);
-	}
-
-	.divider {
-		width: 1px;
-		height: 16px;
-		margin: 0 12px;
-		background: var(--bar-rule);
 	}
 
 	.sign-in {
@@ -263,12 +253,6 @@
 			box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
 			gap: 2px;
 			inset: 52px 10px auto auto;
-		}
-
-		.compact-links .divider {
-			width: auto;
-			height: 1px;
-			margin: 4px 6px;
 		}
 
 		.compact-links :is(.nav-link, .sign-in) {

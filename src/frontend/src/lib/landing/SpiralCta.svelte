@@ -286,8 +286,9 @@
 	.spiral {
 		position: relative;
 		overflow: hidden;
-		height: 700px;
-		background: #f7f7f7;
+		/* The whole screen below the header, so the card before is fully covered. */
+		height: max(700px, calc(100svh - 80px));
+		background: #f8f6f1;
 		color: #111;
 		/* Sideways swipes stir the pictures; up and down still scroll the page. */
 		touch-action: pan-y;
@@ -296,6 +297,27 @@
 	.layer {
 		position: absolute;
 		inset: 0;
+		pointer-events: none;
+	}
+
+	/*
+		The pictures dissolve into the paper towards the bottom edge, so the
+		section runs into the clouds below without a line where it is cut off.
+	*/
+	.spiral::after {
+		position: absolute;
+		z-index: 1;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		height: 240px;
+		background: linear-gradient(
+			180deg,
+			rgb(248 246 241 / 0%),
+			rgb(248 246 241 / 85%) 55%,
+			#f8f6f1 80%
+		);
+		content: '';
 		pointer-events: none;
 	}
 
@@ -372,7 +394,7 @@
 		margin: 0;
 		padding: 6px 14px;
 		border-radius: 14px;
-		background: rgb(247 247 247 / 85%);
+		background: rgb(248 246 241 / 85%);
 		color: #555;
 		font-size: 17px;
 		letter-spacing: -0.02em;
@@ -381,7 +403,7 @@
 
 	@media (max-width: 809px) {
 		.spiral {
-			height: 689px;
+			height: max(640px, calc(100svh - 72px));
 		}
 
 		.item {

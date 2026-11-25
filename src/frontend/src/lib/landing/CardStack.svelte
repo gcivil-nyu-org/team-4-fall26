@@ -55,10 +55,6 @@
 </div>
 
 <style>
-	.deck {
-		padding-bottom: 12px;
-	}
-
 	.holder {
 		position: sticky;
 		top: var(--pin, 0px);
@@ -85,6 +81,13 @@
 		transform-origin: 50% 100%;
 	}
 
+	/* The last card runs straight into whatever follows: no inset, no lower corners. */
+	.holder:last-child .card {
+		margin-inline: 0;
+		border-radius: 28px 28px 0 0;
+		box-shadow: none;
+	}
+
 	@media (prefers-reduced-motion: reduce) {
 		.card {
 			filter: none;
@@ -100,6 +103,11 @@
 		.card {
 			margin-inline: 8px;
 			border-radius: 20px;
+		}
+
+		.holder:last-child .card {
+			margin-inline: 0;
+			border-radius: 20px 20px 0 0;
 		}
 	}
 </style>

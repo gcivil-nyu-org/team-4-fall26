@@ -6,6 +6,7 @@
 	import { page as route } from '$app/state';
 	import BestSeats from '$lib/landing/BestSeats.svelte';
 	import CardStack from '$lib/landing/CardStack.svelte';
+	import HomeFooter from '$lib/landing/HomeFooter.svelte';
 	import IntroStatement from '$lib/landing/IntroStatement.svelte';
 	import OtherCities from '$lib/landing/OtherCities.svelte';
 	import SessionStages from '$lib/landing/SessionStages.svelte';
@@ -525,7 +526,7 @@
 						{/if}
 					</div>
 
-					<p class="description">Free to search. No ads. Every spot free to sit in.</p>
+					<p class="description">Free to use. No ads.</p>
 				</section>
 
 				<!-- aria-live so a screen reader hears the outcome without moving focus. -->
@@ -586,14 +587,15 @@
 		{#snippet cities()}<OtherCities />{/snippet}
 		{#snippet spiral()}<SpiralCta />{/snippet}
 	</main>
+	<HomeFooter />
 </div>
 
 <style>
 	.page {
 		--home-gutter: 24px;
-		--home-header-height: 72px;
+		--home-header-height: 60px;
 		/* The landing deck's cards pin just below the sticky header (read as px by script). */
-		--deck-top: 80px;
+		--deck-top: 68px;
 		--site-header-text: #f7f8f8;
 		--site-header-muted: #8a8f98;
 		--site-header-hover: rgb(255 255 255 / 7%);
@@ -613,8 +615,8 @@
 		top: 0;
 		padding-inline: 20px;
 		border-bottom: 1px solid rgb(255 255 255 / 8%);
-		background: rgb(8 9 10 / 72%);
-		backdrop-filter: blur(20px);
+		/* Linear's black, solid, so the bar reads the same over light and dark sections. */
+		background: #08090a;
 	}
 
 	.first-scene {
@@ -861,7 +863,13 @@
 
 	h1 {
 		max-width: 12em;
-		margin: 0;
+		/*
+			The gradient is clipped to the text's box, and at line-height 1 the
+			descenders (the g of "together") hang below it -- so the box gets
+			room for them, and the margin gives that room back.
+		*/
+		margin: 0 0 calc(20px - 0.14em);
+		padding-bottom: 0.14em;
 		background: linear-gradient(180deg, #f7f8f8 30%, rgb(247 248 248 / 55%));
 		background-clip: text;
 		color: transparent;

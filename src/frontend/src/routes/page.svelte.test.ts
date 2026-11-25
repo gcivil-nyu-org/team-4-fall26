@@ -445,10 +445,11 @@ describe('typing into the box', () => {
 describe('the Map tab in the header', () => {
 	/**
 	 * Disambiguates it from the Map half of the segmented control over the
-	 * results, which is named the same thing and appears once there are any.
+	 * results, which is named the same thing and appears once there are any,
+	 * and from the Map tab in the landing page's phone, a navigation of its own.
 	 */
 	async function openMap() {
-		const navigation = page.getByRole('navigation');
+		const navigation = page.getByRole('navigation', { name: 'Main navigation' });
 		const menu = navigation.getByRole('button', { name: 'Site navigation' });
 		if (menu.query()) await menu.click();
 		await navigation.getByRole('button', { name: 'Map' }).click();

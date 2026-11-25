@@ -68,6 +68,8 @@
 	*/
 	let section: HTMLElement;
 	let active = $state(0);
+	/** Whether the section is within a screen of view yet; see onMount. */
+	let near = $state(false);
 
 	function travel() {
 		return Math.max(1, section.offsetHeight - innerHeight);
@@ -92,11 +94,26 @@
 		addEventListener('scroll', schedule, { passive: true });
 		addEventListener('resize', schedule);
 		update();
-		void findGroups('');
-		void findSpots();
-		if (seats[0]) void openSpot(seats[0].id);
+
+		// The phone's live data and its map start a screen before the section
+		// arrives rather than with the page: they are several screens down, and
+		// on a slow connection the hero should not wait behind five requests
+		// and a map engine that most visitors never scroll to.
+		const approach = new IntersectionObserver(
+			([entry]) => {
+				if (!entry.isIntersecting) return;
+				approach.disconnect();
+				near = true;
+				void findGroups('');
+				void findSpots();
+				if (seats[0]) void openSpot(seats[0].id);
+			},
+			{ rootMargin: '100% 0px' }
+		);
+		approach.observe(section);
 		return () => {
 			cancelAnimationFrame(frame);
+			approach.disconnect();
 			removeEventListener('scroll', schedule);
 			removeEventListener('resize', schedule);
 		};
@@ -518,7 +535,7 @@
 		/>
 		{#if spotsState === 'error'}
 			<p class="empty">Couldn't load the map's spots.</p>
-		{:else}
+		{:else if near}
 			<PhoneMap {spots} picked={picked?.id ?? null} onPick={(spot) => (picked = spot)} />
 		{/if}
 

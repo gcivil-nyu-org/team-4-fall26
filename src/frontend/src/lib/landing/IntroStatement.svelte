@@ -84,6 +84,61 @@
 </section>
 
 <style>
+	/*
+		Registered as numbers so the browser computes each once, as a number.
+		Unregistered, every character re-resolved the whole chain of var() and
+		clamp() from Locomotive's --progress on every scroll frame: about 16 ms
+		per frame for the reveal alone. --count is also SessionStages'; it is a
+		number there too.
+	*/
+	@property --progress {
+		syntax: '<number>';
+		inherits: true;
+		initial-value: 1;
+	}
+
+	@property --u {
+		syntax: '<number>';
+		inherits: true;
+		initial-value: 0;
+	}
+
+	@property --reveal {
+		syntax: '<number>';
+		inherits: true;
+		initial-value: 0;
+	}
+
+	@property --covered {
+		syntax: '<number>';
+		inherits: true;
+		initial-value: 0;
+	}
+
+	@property --entered {
+		syntax: '<number>';
+		inherits: true;
+		initial-value: 0;
+	}
+
+	@property --count {
+		syntax: '<number>';
+		inherits: true;
+		initial-value: 0;
+	}
+
+	@property --i {
+		syntax: '<number>';
+		inherits: false;
+		initial-value: 0;
+	}
+
+	@property --local {
+		syntax: '<number>';
+		inherits: false;
+		initial-value: 0;
+	}
+
 	.statements {
 		/*
 			The section is two screens of cards plus a half-screen hold, and

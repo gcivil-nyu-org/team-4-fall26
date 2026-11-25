@@ -38,6 +38,8 @@
 </script>
 
 <script lang="ts" generics="T">
+	import { pauseOffscreen } from '$lib/offscreen';
+
 	type Props = {
 		items: readonly T[];
 		row: (item: T) => Row;
@@ -107,7 +109,7 @@
 	</li>
 {/snippet}
 
-<ul class="list">
+<ul class="list" {@attach pauseOffscreen}>
 	{#each items as item (row(item).key)}
 		{@render line(row(item), false)}
 	{/each}
@@ -212,6 +214,20 @@
 	.cta:focus-within .title::after {
 		content: '(+)';
 		animation: none;
+	}
+
+	/* Out of view the stars stop flashing; see pauseOffscreen. A blink is
+		exactly what someone asking for less motion does not want. */
+	.list:global([data-offscreen]) .title::before,
+	.list:global([data-offscreen]) .title::after {
+		animation-play-state: paused;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cta .title::before,
+		.cta .title::after {
+			animation: none;
+		}
 	}
 
 	@keyframes flash {

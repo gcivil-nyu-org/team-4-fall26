@@ -82,17 +82,17 @@
 	}
 
 	onMount(() => {
-		let frame = 0;
+		// Read in the scroll event itself, not in an animation frame. Scroll
+		// events run before the frame's callbacks, while the page is still laid
+		// out from the last frame, so the read is free; in a frame it came after
+		// Locomotive's and the card deck's writes and forced a second full style
+		// pass every frame. Svelte only touches the DOM when `active` changes.
 		function update() {
-			frame = 0;
 			const progress = Math.min(1, Math.max(0, -section.getBoundingClientRect().top / travel()));
 			active = Math.min(features.length - 1, Math.round(progress * (features.length - 1)));
 		}
-		function schedule() {
-			if (!frame) frame = requestAnimationFrame(update);
-		}
-		addEventListener('scroll', schedule, { passive: true });
-		addEventListener('resize', schedule);
+		addEventListener('scroll', update, { passive: true });
+		addEventListener('resize', update);
 		update();
 
 		// The phone's live data and its map start a screen before the section
@@ -112,10 +112,9 @@
 		);
 		approach.observe(section);
 		return () => {
-			cancelAnimationFrame(frame);
 			approach.disconnect();
-			removeEventListener('scroll', schedule);
-			removeEventListener('resize', schedule);
+			removeEventListener('scroll', update);
+			removeEventListener('resize', update);
 		};
 	});
 

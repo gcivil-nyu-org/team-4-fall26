@@ -9,55 +9,105 @@
 
 	let deck: HTMLElement;
 	const holders: HTMLElement[] = [];
+	const cardElements: HTMLElement[] = [];
 
+	/*
+		Scroll work stays within the frame budget by touching as little as it can.
+		Every position is read before anything is written, so the browser lays out
+		once per frame rather than once per card. And the sinking is written as
+		each card's own transform and filter rather than as a custom property:
+		a custom property is inherited, so changing one restyled everything inside
+		every card -- the phone, the spiral, the lists -- about 6 s of style work
+		in a 4 s scroll. Where each card pins only changes with its size, so that
+		is measured on resize, not on scroll.
+	*/
 	onMount(() => {
+		const motion = matchMedia('(prefers-reduced-motion: reduce)');
 		let frame = 0;
 
-		function update() {
-			frame = 0;
+		function pin() {
 			// Below a sticky header, if the page has one, rather than under it.
 			const top = parseFloat(getComputedStyle(deck).getPropertyValue('--deck-top')) || 0;
+			const heights = holders.map((holder) => holder.offsetHeight);
 			holders.forEach((holder, i) => {
 				// Pinned by its bottom edge, so a card taller than the screen is
 				// read to the end before the next one covers it.
-				holder.style.setProperty('--pin', `${Math.min(top, innerHeight - holder.offsetHeight)}px`);
-				const next = holders[i + 1];
-				const arriving = next ? next.getBoundingClientRect().top : innerHeight;
-				const covered = Math.min(1, Math.max(0, 1 - arriving / innerHeight));
-				holder.style.setProperty('--covered', covered.toFixed(3));
+				holder.style.top = `${Math.min(top, innerHeight - heights[i])}px`;
 			});
 		}
 
-		function schedule() {
-			if (!frame) frame = requestAnimationFrame(update);
+		// Positions are read in the scroll event, before any frame callback has
+		// written to the page, and written in the next frame.
+		let arriving: number[] = [];
+
+		function measure() {
+			arriving = holders.map((_, i) =>
+				i + 1 < holders.length ? holders[i + 1].getBoundingClientRect().top : innerHeight
+			);
 		}
 
-		const size = new ResizeObserver(schedule);
+		function sink() {
+			frame = 0;
+			if (motion.matches) return;
+			cardElements.forEach((card, i) => {
+				const covered = Number(Math.min(1, Math.max(0, 1 - arriving[i] / innerHeight)).toFixed(3));
+				const lean = i % 2 ? 1 : -1;
+				card.style.transform = `scale(${1 - 0.06 * covered}) rotate(${lean * 1.4 * covered}deg)`;
+				card.style.filter = `brightness(${1 - 0.45 * covered})`;
+			});
+		}
+
+		function scrolled() {
+			measure();
+			if (!frame) frame = requestAnimationFrame(sink);
+		}
+
+		function resized() {
+			pin();
+			scrolled();
+		}
+
+		// Under reduced motion the stylesheet holds every card flat; inline
+		// styles would override it, so they are cleared.
+		function motionChanged() {
+			for (const card of cardElements) {
+				card.style.transform = '';
+				card.style.filter = '';
+			}
+			scrolled();
+		}
+
+		const size = new ResizeObserver(resized);
 		for (const holder of holders) size.observe(holder);
-		addEventListener('scroll', schedule, { passive: true });
-		addEventListener('resize', schedule);
-		update();
+		addEventListener('scroll', scrolled, { passive: true });
+		addEventListener('resize', resized);
+		motion.addEventListener('change', motionChanged);
+		pin();
+		measure();
+		sink();
 		return () => {
 			cancelAnimationFrame(frame);
 			size.disconnect();
-			removeEventListener('scroll', schedule);
-			removeEventListener('resize', schedule);
+			removeEventListener('scroll', scrolled);
+			removeEventListener('resize', resized);
+			motion.removeEventListener('change', motionChanged);
 		};
 	});
 </script>
 
 <div class="deck" bind:this={deck}>
 	{#each cards as card, i (i)}
-		<div class="holder" bind:this={holders[i]} style:--lean={i % 2 ? 1 : -1}>
-			<div class="card">{@render card()}</div>
+		<div class="holder" bind:this={holders[i]}>
+			<div class="card" bind:this={cardElements[i]}>{@render card()}</div>
 		</div>
 	{/each}
 </div>
 
 <style>
+	/* Each holder's `top` is set from script; see `pin()`. */
 	.holder {
 		position: sticky;
-		top: var(--pin, 0px);
+		top: 0;
 	}
 
 	.holder + .holder {
@@ -67,7 +117,9 @@
 	/*
 		Each card sits inset with rounded corners, like a flashcard on a table.
 		Covered, it sinks back: smaller, darker, and turned a degree or so,
-		alternating sides so the deck looks stacked by hand.
+		alternating sides so the deck looks stacked by hand. Script sets that
+		per card as it is covered (`sink()`); the transform and filter here are
+		the uncovered state, which is what renders before it runs.
 	*/
 	.card {
 		/* Clipped rather than hidden, so sticky parts inside a card still stick. */
@@ -75,9 +127,8 @@
 		margin-inline: 12px;
 		border-radius: 28px;
 		box-shadow: 0 -18px 50px rgb(0 0 0 / 35%);
-		filter: brightness(calc(1 - 0.45 * var(--covered, 0)));
-		transform: scale(calc(1 - 0.06 * var(--covered, 0)))
-			rotate(calc(var(--lean) * 1.4deg * var(--covered, 0)));
+		filter: brightness(1);
+		transform: scale(1) rotate(0deg);
 		transform-origin: 50% 100%;
 	}
 

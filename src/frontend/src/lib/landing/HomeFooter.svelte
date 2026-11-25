@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { pauseOffscreen } from '$lib/offscreen';
 
 	/*
 		Poke's footer, measure for measure: four columns of links on warm paper,
@@ -96,7 +97,7 @@
 	const year = new Date().getFullYear();
 </script>
 
-<footer class="footer">
+<footer class="footer" {@attach pauseOffscreen}>
 	<!-- A sky of clouds between the section above and the links. -->
 	<svg
 		class="clouds"
@@ -260,6 +261,11 @@
 
 	.sun {
 		animation: glow 9s ease-in-out infinite alternate;
+	}
+
+	/* Out of view the sky holds still; see pauseOffscreen. */
+	.footer:global([data-offscreen]) :is(.layer, .sun) {
+		animation-play-state: paused;
 	}
 
 	@keyframes drift {

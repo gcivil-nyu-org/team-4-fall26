@@ -1,4 +1,9 @@
 @import 'tailwindcss';
+/*
+	Newsreader (landing statements) and Instrument Serif (city list), subset by
+	fonts/subset.py. OFL; see /Newsreader-LICENSE.txt and /InstrumentSerif-LICENSE.txt.
+*/
+@import '../lib/fonts/global.css';
 
 :root {
 	font-family:

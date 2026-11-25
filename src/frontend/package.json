@@ -48,6 +48,7 @@
 		"@auth0/auth0-spa-js": "^2.29.0",
 		"@lucide/svelte": "^1.68.0",
 		"clsx": "^2.1.1",
+		"locomotive-scroll": "5.1.1",
 		"maplibre-gl": "^6.15.0",
 		"markdown-it": "^15.0.3",
 		"pmtiles": "^4.5.0",

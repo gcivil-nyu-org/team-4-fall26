@@ -1,0 +1,382 @@
+{
+	"pages": {
+		"/ @360": [
+			"/InstrumentSerif-Regular.woff2",
+			"/NewsreaderVariable-Italic.woff2",
+			"/NewsreaderVariable.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7SUc.woff2",
+			"/s/intertight/v9/NGSnv5HMAFg6IuGlBNMjxJEL2VmU3NS7Z2mjpgiaWy5S.woff2",
+			"/s/pressstart2p/v16/e3t4euO8T-267oIAQAu6jDQyK3nVivM.woff2"
+		],
+		"/ @390": [
+			"/InstrumentSerif-Regular.woff2",
+			"/NewsreaderVariable-Italic.woff2",
+			"/NewsreaderVariable.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7SUc.woff2",
+			"/s/intertight/v9/NGSnv5HMAFg6IuGlBNMjxJEL2VmU3NS7Z2mjpgiaWy5S.woff2",
+			"/s/pressstart2p/v16/e3t4euO8T-267oIAQAu6jDQyK3nVivM.woff2"
+		],
+		"/ @768": [
+			"/InstrumentSerif-Regular.woff2",
+			"/NewsreaderVariable-Italic.woff2",
+			"/NewsreaderVariable.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7SUc.woff2",
+			"/s/intertight/v9/NGSnv5HMAFg6IuGlBNMjxJEL2VmU3NS7Z2mjpgiaWy5S.woff2",
+			"/s/pressstart2p/v16/e3t4euO8T-267oIAQAu6jDQyK3nVivM.woff2"
+		],
+		"/ @1024": [
+			"/InstrumentSerif-Regular.woff2",
+			"/NewsreaderVariable-Italic.woff2",
+			"/NewsreaderVariable.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7SUc.woff2",
+			"/s/intertight/v9/NGSnv5HMAFg6IuGlBNMjxJEL2VmU3NS7Z2mjpgiaWy5S.woff2",
+			"/s/pressstart2p/v16/e3t4euO8T-267oIAQAu6jDQyK3nVivM.woff2"
+		],
+		"/ @1280": [
+			"/InstrumentSerif-Regular.woff2",
+			"/NewsreaderVariable-Italic.woff2",
+			"/NewsreaderVariable.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7SUc.woff2",
+			"/s/intertight/v9/NGSnv5HMAFg6IuGlBNMjxJEL2VmU3NS7Z2mjpgiaWy5S.woff2",
+			"/s/pressstart2p/v16/e3t4euO8T-267oIAQAu6jDQyK3nVivM.woff2"
+		],
+		"/ @1440": [
+			"/InstrumentSerif-Regular.woff2",
+			"/NewsreaderVariable-Italic.woff2",
+			"/NewsreaderVariable.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7SUc.woff2",
+			"/s/intertight/v9/NGSnv5HMAFg6IuGlBNMjxJEL2VmU3NS7Z2mjpgiaWy5S.woff2",
+			"/s/pressstart2p/v16/e3t4euO8T-267oIAQAu6jDQyK3nVivM.woff2"
+		],
+		"/ @1920": [
+			"/InstrumentSerif-Regular.woff2",
+			"/NewsreaderVariable-Italic.woff2",
+			"/NewsreaderVariable.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2",
+			"/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7SUc.woff2",
+			"/s/intertight/v9/NGSnv5HMAFg6IuGlBNMjxJEL2VmU3NS7Z2mjpgiaWy5S.woff2",
+			"/s/pressstart2p/v16/e3t4euO8T-267oIAQAu6jDQyK3nVivM.woff2"
+		],
+		"/communities @360": [
+			"/InterVariable.woff2"
+		],
+		"/communities @390": [
+			"/InterVariable.woff2"
+		],
+		"/communities @768": [
+			"/InterVariable.woff2"
+		],
+		"/communities @1024": [
+			"/InterVariable.woff2"
+		],
+		"/communities @1280": [
+			"/InterVariable.woff2"
+		],
+		"/communities @1440": [
+			"/InterVariable.woff2"
+		],
+		"/communities @1920": [
+			"/InterVariable.woff2"
+		],
+		"/board @360": [],
+		"/board @390": [],
+		"/board @768": [],
+		"/board @1024": [],
+		"/board @1280": [],
+		"/board @1440": [],
+		"/board @1920": [],
+		"/messages @360": [
+			"/InterVariable.woff2"
+		],
+		"/messages @390": [
+			"/InterVariable.woff2"
+		],
+		"/messages @768": [
+			"/InterVariable.woff2"
+		],
+		"/messages @1024": [
+			"/InterVariable.woff2"
+		],
+		"/messages @1280": [
+			"/InterVariable.woff2"
+		],
+		"/messages @1440": [
+			"/InterVariable.woff2"
+		],
+		"/messages @1920": [
+			"/InterVariable.woff2"
+		],
+		"/account @360": [],
+		"/account @390": [],
+		"/account @768": [],
+		"/account @1024": [],
+		"/account @1280": [],
+		"/account @1440": [],
+		"/account @1920": [],
+		"/signup @360": [],
+		"/signup @390": [],
+		"/signup @768": [],
+		"/signup @1024": [],
+		"/signup @1280": [],
+		"/signup @1440": [],
+		"/signup @1920": [],
+		"/favourites @360": [],
+		"/favourites @390": [],
+		"/favourites @768": [],
+		"/favourites @1024": [],
+		"/favourites @1280": [],
+		"/favourites @1440": [],
+		"/favourites @1920": [],
+		"/people @360": [],
+		"/people @390": [],
+		"/people @768": [],
+		"/people @1024": [],
+		"/people @1280": [],
+		"/people @1440": [],
+		"/people @1920": [],
+		"/spots/dohmh:40365904 @360": [],
+		"/spots/dohmh:40365904 @390": [],
+		"/spots/dohmh:40365904 @768": [],
+		"/spots/dohmh:40365904 @1024": [],
+		"/spots/dohmh:40365904 @1280": [],
+		"/spots/dohmh:40365904 @1440": [],
+		"/spots/dohmh:40365904 @1920": []
+	},
+	"families": {
+		"Inter on home": {
+			"chars": "&'(),-.0123456789:?ABCDEFGHIJKLMNOPQRSTUVWY_abcdefghijklmnopqrstuvwxyz©·éøŌ–’…→★",
+			"nonAscii": [
+				"U+00A9",
+				"U+00B7",
+				"U+00E9",
+				"U+00F8",
+				"U+014C",
+				"U+2013",
+				"U+2019",
+				"U+2026",
+				"U+2192",
+				"U+2605"
+			],
+			"weights": [
+				"300",
+				"400",
+				"500",
+				"510",
+				"600",
+				"700",
+				"900"
+			],
+			"styles": [
+				"normal"
+			],
+			"variations": [],
+			"features": [
+				"numeric:tabular-nums"
+			],
+			"sizes": [
+				0,
+				8,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				22,
+				26,
+				28,
+				30,
+				31,
+				32,
+				35,
+				36,
+				40,
+				41,
+				42,
+				43,
+				44,
+				47,
+				48,
+				49,
+				50,
+				51,
+				58,
+				60,
+				63,
+				65,
+				67,
+				70,
+				72,
+				76,
+				83,
+				84,
+				91,
+				104
+			],
+			"hyphens": false,
+			"pages": [
+				"/"
+			]
+		},
+		"Newsreader on home": {
+			"chars": ",.:ISTWabcdefghilmnoprstuvwy—",
+			"nonAscii": [
+				"U+2014"
+			],
+			"weights": [
+				"300"
+			],
+			"styles": [
+				"italic",
+				"normal"
+			],
+			"variations": [],
+			"features": [],
+			"sizes": [
+				32,
+				39,
+				40,
+				45,
+				46,
+				52,
+				54,
+				56,
+				63,
+				68,
+				72
+			],
+			"hyphens": false,
+			"pages": [
+				"/"
+			]
+		},
+		"Inter Tight on home": {
+			"chars": ",ADEFGHIMNOPRSTUVWY",
+			"nonAscii": [],
+			"weights": [
+				"900"
+			],
+			"styles": [
+				"normal"
+			],
+			"variations": [],
+			"features": [],
+			"sizes": [
+				30,
+				50
+			],
+			"hyphens": false,
+			"pages": [
+				"/"
+			]
+		},
+		"Press Start 2P on home": {
+			"chars": "02378×",
+			"nonAscii": [
+				"U+00D7"
+			],
+			"weights": [
+				"400"
+			],
+			"styles": [
+				"normal"
+			],
+			"variations": [],
+			"features": [],
+			"sizes": [
+				11,
+				14
+			],
+			"hyphens": false,
+			"pages": [
+				"/"
+			]
+		},
+		"Instrument Serif on home": {
+			"chars": "ACEFLSacdeghilnoprstuvwy✳",
+			"nonAscii": [
+				"U+2733"
+			],
+			"weights": [
+				"400"
+			],
+			"styles": [
+				"normal"
+			],
+			"variations": [],
+			"features": [],
+			"sizes": [
+				20,
+				29,
+				39,
+				40,
+				49,
+				55,
+				59,
+				72,
+				73,
+				78,
+				98,
+				110,
+				147,
+				154,
+				205,
+				250
+			],
+			"hyphens": false,
+			"pages": [
+				"/"
+			]
+		},
+		"Inter on other pages": {
+			"chars": ",-.012345ABCDEFGHILMNOPSTUYabcdefghijklmnopqrstuvwxy—’…",
+			"nonAscii": [
+				"U+2014",
+				"U+2019",
+				"U+2026"
+			],
+			"weights": [
+				"400",
+				"500",
+				"510",
+				"550",
+				"600",
+				"700"
+			],
+			"styles": [
+				"normal"
+			],
+			"variations": [],
+			"features": [],
+			"sizes": [
+				11,
+				12,
+				13,
+				14,
+				16,
+				17,
+				18,
+				19,
+				23,
+				26,
+				30,
+				31,
+				38
+			],
+			"hyphens": false,
+			"pages": [
+				"/communities",
+				"/messages"
+			]
+		}
+	}
+}

@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 from accounts.authentication import Auth0Authentication
 from accounts.models import Account, AccountType
 
+from .google import GoogleUnavailable, place_for
 from .models import Review, ReviewReply, StudySpot
 from .search import expanded_words, search
 from .serializers import (
@@ -391,6 +392,34 @@ class ListingDetailView(APIView):
         # Lock before Django collects cascading favourites so it sees preceding saves.
         owned_listing(request, spot_id, for_update=True).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GoogleNotAvailable(APIException):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_detail = "Google's reviews and photos are not available right now."
+    default_code = "google_unavailable"
+
+
+class SpotGoogleView(APIView):
+    """``GET /spots/{id}/google`` -- the spot's Google rating, reviews and photos.
+
+    Public. ``null`` when Google has no page for the spot; 503 when Google is
+    not configured or does not answer.
+    """
+
+    authentication_classes: list[type] = []
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request, spot_id: str) -> Response:
+        try:
+            spot = StudySpot.objects.get(pk=spot_id)
+        except StudySpot.DoesNotExist:
+            raise NotFound(f"No study spot has the identifier {spot_id!r}.") from None
+        try:
+            place = place_for(spot)
+        except GoogleUnavailable as error:
+            raise GoogleNotAvailable() from error
+        return Response(place.as_json() if place else None)
 
 
 class ReviewConflict(APIException):

@@ -1,0 +1,1 @@
+<a class="action svelte-1lrzi5q" data-sveltekit-reload="" href="./spots/">Open</a>

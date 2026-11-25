@@ -225,9 +225,18 @@
 	});
 </script>
 
-<svelte:head
-	><title>Messages · StudySpot</title><meta name="robots" content="noindex" /></svelte:head
->
+<svelte:head>
+	<title>Messages · StudySpot</title>
+	<meta name="robots" content="noindex" />
+	<!-- The chat Inter's core; see src/lib/fonts/chat.css. -->
+	<link
+		rel="preload"
+		href="/fonts/inter-variable-core.woff2"
+		as="font"
+		type="font/woff2"
+		crossorigin="anonymous"
+	/>
+</svelte:head>
 <div class="site-navigation" data-theme={theme} bind:clientHeight={headerHeight}>
 	<SiteHeader />
 </div>

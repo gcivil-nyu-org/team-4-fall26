@@ -181,9 +181,9 @@
 		display: flex;
 		width: 100%;
 		flex-direction: column;
-		gap: 12px;
+		gap: 8px;
 		margin: 0;
-		padding: 12px 0 0;
+		padding: 0;
 	}
 
 	.field-row,
@@ -191,7 +191,7 @@
 		display: grid;
 		width: 100%;
 		align-items: stretch;
-		gap: 12px;
+		gap: 8px;
 	}
 
 	.field-row {
@@ -210,25 +210,24 @@
 	label {
 		display: flex;
 		min-width: 0;
-		min-height: 60px;
+		min-height: 56px;
 		flex-direction: column;
 		justify-content: center;
 		gap: 4px;
 		padding: 9px 14px;
-		border: 1px solid #f0ebe7;
-		border-radius: 16px;
-		background: #faf8f6;
+		border: 1px solid var(--ln-border, rgb(255 255 255 / 8%));
+		border-radius: 10px;
+		background: var(--ln-surface, #141516);
+		color: var(--ln-text, #f7f8f8);
 		font-size: 14px;
-		font-weight: 700;
+		font-weight: 500;
 	}
 
 	.field > span {
-		color: #6a625d;
-		font-size: 11px;
-		font-weight: 750;
-		letter-spacing: 0.06em;
+		color: var(--ln-muted, #8a8f98);
+		font-size: 12px;
+		font-weight: 500;
 		line-height: 1.2;
-		text-transform: uppercase;
 	}
 
 	select,
@@ -239,16 +238,17 @@
 		padding: 0 20px 0 0;
 		border: 0;
 		border-radius: 0;
-		color: var(--color-text);
 		background-color: transparent;
+		color: var(--ln-text, #f7f8f8);
 		font-size: 14px;
-		font-weight: 650;
+		font-weight: 500;
+		color-scheme: dark;
 	}
 
 	select:focus-visible,
 	input[list]:focus-visible {
 		border-radius: 4px;
-		outline: 2px solid var(--color-brand-hover);
+		outline: 2px solid var(--ln-brand-hover, #7170ff);
 		outline-offset: 2px;
 	}
 
@@ -258,7 +258,7 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 12px;
-		min-height: 60px;
+		min-height: 56px;
 		padding: 10px 14px;
 		cursor: pointer;
 	}
@@ -273,9 +273,9 @@
 	}
 
 	.toggle .count {
-		color: var(--color-muted);
+		color: var(--ln-muted, #8a8f98);
 		font-size: 12px;
-		font-weight: 600;
+		font-weight: 400;
 	}
 
 	.toggle input {
@@ -295,7 +295,7 @@
 		height: 22px;
 		flex: none;
 		border-radius: 999px;
-		background: #ded9d5;
+		background: rgb(255 255 255 / 14%);
 		transition: background-color 150ms ease;
 	}
 
@@ -313,7 +313,7 @@
 	}
 
 	.toggle input:checked ~ .switch {
-		background: var(--color-brand-hover);
+		background: var(--ln-brand, #5e6ad2);
 	}
 
 	.toggle input:checked ~ .switch::after {
@@ -321,21 +321,21 @@
 	}
 
 	.toggle input:focus-visible ~ .switch {
-		outline: 3px solid rgb(217 11 62 / 35%);
+		outline: 3px solid rgb(113 112 255 / 40%);
 		outline-offset: 3px;
 	}
 
 	button {
 		grid-column: 1 / -1;
 		justify-self: start;
-		min-height: 44px;
-		padding: 0 16px;
+		min-height: 36px;
+		padding: 0 6px;
 		border: 0;
 		border-radius: 999px;
-		color: var(--color-brand-hover);
 		background: transparent;
+		color: var(--ln-brand-hover, #7170ff);
 		font-size: 13px;
-		font-weight: 700;
+		font-weight: 500;
 		cursor: pointer;
 	}
 

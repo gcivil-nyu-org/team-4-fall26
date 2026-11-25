@@ -979,6 +979,14 @@
 
 <svelte:head>
 	<title>Communities · StudySpot</title>
+	<!-- The chat Inter's core; see src/lib/fonts/chat.css. -->
+	<link
+		rel="preload"
+		href="/fonts/inter-variable-core.woff2"
+		as="font"
+		type="font/woff2"
+		crossorigin="anonymous"
+	/>
 	<meta name="description" content="Find and create public study communities." />
 </svelte:head>
 

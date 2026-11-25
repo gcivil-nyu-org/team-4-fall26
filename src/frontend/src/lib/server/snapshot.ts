@@ -19,7 +19,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { BOROUGHS, type StudySpot } from '$lib/contract';
+import { BOROUGHS, type Borough, type StudySpot } from '$lib/contract';
 import type { NeighborhoodGroup } from '$lib/near';
 
 /**
@@ -80,6 +80,63 @@ export function neighborhoodsByBorough(): NeighborhoodGroup[] {
 	return BOROUGHS.flatMap((borough) => {
 		const group = names.get(borough);
 		return group ? [{ borough, neighborhoods: [...group].sort((a, b) => a.localeCompare(b)) }] : [];
+	});
+}
+
+/** What the homepage's "best seats" list shows for one spot, train included. */
+export type Seat = Pick<StudySpot, 'id' | 'name' | 'category' | 'neighborhood' | 'borough'> & {
+	subway_station: string;
+	subway_routes: string;
+	subway_metres: number;
+};
+
+export type BoroughSeats = { borough: Borough; seats: Seat[] };
+
+/**
+ * The easiest seats in each borough, nearest train first.
+ *
+ * "Best" is a rule the page states rather than anyone's taste: free to sit, a
+ * city Wi-Fi hotspot within 25 m, and a step-free station. One seat per
+ * station, because branches that share a building -- a library and its
+ * learning center -- would otherwise fill the list with one address. Keyed by
+ * station and lines together, since "125 St" names several stations.
+ */
+export function bestSeats(perBorough = 5): BoroughSeats[] {
+	return BOROUGHS.map((borough) => {
+		const candidates = allSpots().flatMap((spot): Seat[] => {
+			const { subway_station: station, subway_routes: routes, subway_metres: metres } = spot;
+			const qualifies =
+				spot.borough === borough &&
+				spot.no_purchase_needed &&
+				spot.free_public_wifi &&
+				spot.subway_step_free === 'full';
+			if (!qualifies || station === null || routes === null || metres === null) return [];
+			const { id, name, category, neighborhood } = spot;
+			return [
+				{
+					id,
+					name,
+					category,
+					neighborhood,
+					borough,
+					subway_station: station,
+					subway_routes: routes,
+					subway_metres: metres
+				}
+			];
+		});
+		candidates.sort((a, b) => a.subway_metres - b.subway_metres || a.name.localeCompare(b.name));
+
+		const stations = new Set<string>();
+		const seats: Seat[] = [];
+		for (const seat of candidates) {
+			const station = `${seat.subway_station}|${seat.subway_routes}`;
+			if (stations.has(station)) continue;
+			stations.add(station);
+			seats.push(seat);
+			if (seats.length === perBorough) break;
+		}
+		return { borough, seats };
 	});
 }
 

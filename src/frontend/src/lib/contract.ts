@@ -263,6 +263,21 @@ export type Review = {
 	updated_at: string;
 };
 
+/**
+ * What a student sends to `POST /spots/{id}/reviews`.
+ *
+ * Scores are whole numbers from 1 to 5, 5 best. An optional score or comment
+ * the student skipped is left out rather than sent as `null` or `""`.
+ */
+export type ReviewInput = {
+	rating: number;
+	noise?: number;
+	wifi?: number;
+	seating?: number;
+	outlets?: number;
+	body?: string;
+};
+
 /** Newest first: by descending creation time, then descending review ID. */
 export type ReviewPage = {
 	items: Review[];

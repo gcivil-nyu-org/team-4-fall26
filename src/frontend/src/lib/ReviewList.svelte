@@ -2,8 +2,11 @@
 	import { untrack } from 'svelte';
 	import { listReviews, type Fetcher } from './api';
 	import type { Review } from './contract';
+	import ReviewForm from './ReviewForm.svelte';
+	import type { Session } from './session.svelte';
 
-	let { spotId, fetcher }: { spotId: string; fetcher?: Fetcher } = $props();
+	let { spotId, fetcher, session }: { spotId: string; fetcher?: Fetcher; session?: Session } =
+		$props();
 
 	type Status = { kind: 'loading' } | { kind: 'ready'; reviews: Review[] } | { kind: 'error' };
 
@@ -35,6 +38,21 @@
 		untrack(() => load(id));
 	});
 
+	/**
+	 * A new review is the newest, so it goes on top. Before the list has
+	 * loaded there is nothing to add it to; loading again brings it in.
+	 */
+	function added(review: Review): void {
+		if (status.kind === 'ready') {
+			status = {
+				kind: 'ready',
+				reviews: [review, ...status.reviews.filter(({ id }) => id !== review.id)]
+			};
+		} else {
+			load(spotId);
+		}
+	}
+
 	/** `noise` reads as "Quiet": on every score 5 is best, so 5 is very quiet. */
 	const SCORES = [
 		['noise', 'Quiet'],
@@ -61,6 +79,11 @@
 
 <section aria-labelledby="reviews-title">
 	<h2 id="reviews-title">Reviews <span class="scale">5 is best</span></h2>
+
+	<!-- A new spot gets a fresh form: no half-written review carries over. -->
+	{#key spotId}
+		<ReviewForm {spotId} {fetcher} {session} oncreated={added} />
+	{/key}
 
 	{#if status.kind === 'loading'}
 		<p class="note" role="status">Loading reviews…</p>

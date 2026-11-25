@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-svelte';
 import ReviewList from './ReviewList.svelte';
 import type { Fetcher } from './api';
 import type { Review, ReviewPage } from './contract';
+import { Session, type AuthClient } from './session.svelte';
 
 const SPOT_ID = 'facdb:bobst';
 
@@ -118,6 +119,52 @@ describe('the review list', () => {
 		await expect.element(page.getByText('Worth the wait.')).toBeInTheDocument();
 		await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
 		expect(urls).toHaveLength(2);
+	});
+
+	it('puts a review the student just posted at the top without loading again', async () => {
+		const requests: string[] = [];
+		const fetcher = (async (input: RequestInfo | URL, init: RequestInit = {}) => {
+			const url = String(input);
+			if (url === '/api/auth/config')
+				return json({ enabled: true, domain: 'x.auth0.com', client_id: 'spa', audience: 'api' });
+			if (url === '/api/account')
+				return json({
+					email: 'ada@nyu.edu',
+					email_verified: true,
+					username: 'ada',
+					account_type: 'student',
+					business_name: '',
+					created_at: '2026-10-27T12:00:00Z'
+				});
+			requests.push(`${init.method ?? 'GET'} ${url}`);
+			if (init.method === 'POST')
+				return json(review({ id: 9, rating: 5, body: 'Just posted.' }), 201);
+			return json(reviewPage([review({ id: 1, body: 'An older review.' })]));
+		}) as unknown as Fetcher;
+		const client = {
+			checkSession: async () => {},
+			isAuthenticated: async () => true,
+			getTokenSilently: async () =>
+				`header.${btoa(JSON.stringify({ sub: 'auth0|ada' }))}.signature`,
+			getIdTokenClaims: async () => ({ __raw: 'id-token' })
+		} as unknown as AuthClient;
+		const session = new Session({ fetcher, createClient: async () => client, storage: null });
+		await session.start();
+
+		render(ReviewList, { spotId: SPOT_ID, fetcher, session });
+		await expect.element(page.getByText('An older review.')).toBeInTheDocument();
+		await page.getByLabelText(/^Overall/).selectOptions('5');
+		await page.getByRole('button', { name: 'Post review' }).click();
+
+		await expect.element(page.getByText('Thanks — your review is posted.')).toBeVisible();
+		const bodies = page
+			.getByRole('listitem')
+			.elements()
+			.map((item) => item.textContent ?? '');
+		expect(bodies).toHaveLength(2);
+		expect(bodies[0]).toContain('Just posted.');
+		expect(bodies[1]).toContain('An older review.');
+		expect(requests.filter((request) => request.startsWith('GET'))).toHaveLength(1);
 	});
 
 	it('never shows a slow reply for the previous spot after switching', async () => {

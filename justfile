@@ -77,7 +77,8 @@ dev-local:
     #!/usr/bin/env bash
     trap 'kill 0' SIGINT SIGTERM EXIT
     (cd src/backend && uv run python manage.py runserver 127.0.0.1:7501) &
-    (cd src/frontend && bun run dev -- --host 127.0.0.1 --port 7500) &
+    # Map tiles are not kept on disk; borrow the deployed site's (see vite.config.ts).
+    (cd src/frontend && TILES_PROXY_TARGET="${TILES_PROXY_TARGET:-https://d1ulyrfyi06kwp.cloudfront.net}" bun run dev -- --host 127.0.0.1 --port 7500) &
     wait
 
 # Start only Postgres, for working on the backend outside Compose.

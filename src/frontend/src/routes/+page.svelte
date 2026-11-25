@@ -581,7 +581,9 @@
 
 		<CardStack cards={[intro, stages, vision, seats, cities, spiral]} />
 		{#snippet intro()}<IntroStatement />{/snippet}
-		{#snippet stages()}<SessionStages />{/snippet}
+		{#snippet stages()}<SessionStages
+				seats={data.bestSeats.find((group) => group.borough === 'Manhattan')?.seats ?? []}
+			/>{/snippet}
 		{#snippet vision()}<VisionFeelings />{/snippet}
 		{#snippet seats()}<BestSeats boroughs={data.bestSeats} />{/snippet}
 		{#snippet cities()}<OtherCities />{/snippet}

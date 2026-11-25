@@ -202,6 +202,7 @@
 							class="name"
 							href={resolve(`/spots/${seat.id}` as '/')}
 							onpointerenter={() => (previewing = seat.id)}
+							onpointerleave={() => (previewing = null)}
 							onfocus={(event) => focusRow(seat.id, event.currentTarget)}
 							onblur={() => (previewing = null)}
 						>
@@ -213,6 +214,7 @@
 						<button
 							type="button"
 							class="vote"
+							onpointerenter={() => (previewing = null)}
 							class:voted={given > 0}
 							aria-label="Heart {seat.name}, {count} hearts"
 							onclick={() => vote(seat)}
@@ -430,8 +432,11 @@
 		margin-right: 4px;
 	}
 
+	/* Only as wide as the name, so the card shows over the name and nowhere else. */
 	.name {
 		min-width: 0;
+		max-width: 100%;
+		justify-self: start;
 		color: inherit;
 	}
 

@@ -236,6 +236,11 @@ AUTH0_AUDIENCE = os.environ.get("AUTH0_AUDIENCE", "").strip()
 #: what local development does.
 AUTH0_JWKS = os.environ.get("AUTH0_JWKS", "").strip()
 
+#: A Google Places API (New) key, for a spot's Google rating, reviews and
+#: photos. Blank switches that off: the endpoint answers 503 and the pages
+#: show StudySpot's own reviews alone.
+GOOGLE_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY", "").strip()
+
 #: Prefix of the custom claims the Auth0 post-login Action adds to the access
 #: token. Auth0 requires a namespaced URL for any claim it did not define, and
 #: the value need not resolve. See docs/source/accounts.md.
